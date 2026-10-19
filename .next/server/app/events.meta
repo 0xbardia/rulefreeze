@@ -1,0 +1,34 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/events/layout,_N_T_/events/page,_N_T_/events"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/events/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 64,
+    "slots": {
+      "children": {
+        "hints": 96,
+        "slots": {
+          "children": {
+            "hints": 160,
+            "slots": null
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/fab3993aca6448bddaa28321567cb9dff5a3778f8b61b8cc5150373c28cfccd0/$/events",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/events/page"
+    },
+    "isFallback": false
+  }
+}

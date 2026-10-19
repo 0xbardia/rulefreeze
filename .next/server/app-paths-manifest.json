@@ -1,0 +1,14 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/health/route": "app/api/health/route.js",
+  "/api/public-config/route": "app/api/public-config/route.js",
+  "/diagnostics/page": "app/diagnostics/page.js",
+  "/events/[id]/amend/page": "app/events/[id]/amend/page.js",
+  "/events/[id]/amendments/[amendmentId]/page": "app/events/[id]/amendments/[amendmentId]/page.js",
+  "/events/[id]/page": "app/events/[id]/page.js",
+  "/events/new/page": "app/events/new/page.js",
+  "/events/page": "app/events/page.js",
+  "/methodology/page": "app/methodology/page.js",
+  "/page": "app/page.js"
+}

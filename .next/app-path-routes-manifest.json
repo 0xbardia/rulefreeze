@@ -1,0 +1,14 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/health/route": "/api/health",
+  "/api/public-config/route": "/api/public-config",
+  "/diagnostics/page": "/diagnostics",
+  "/events/[id]/amend/page": "/events/[id]/amend",
+  "/events/[id]/amendments/[amendmentId]/page": "/events/[id]/amendments/[amendmentId]",
+  "/events/[id]/page": "/events/[id]",
+  "/events/new/page": "/events/new",
+  "/events/page": "/events",
+  "/methodology/page": "/methodology",
+  "/page": "/"
+}

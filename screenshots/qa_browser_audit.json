@@ -1,0 +1,34 @@
+{
+  "consoleErrors": [],
+  "networkFailures": [
+    {
+      "url": "http://127.0.0.1:48820/events/demo-ev-1?_rsc=YOAhSj08-Y8dsjxP",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://127.0.0.1:48820/events/demo-ev-1/amendments/demo-amend-1?_rsc=yUX7rmlEGn_IV3-y",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://127.0.0.1:48820/events/demo-ev-1/amend?_rsc=UznkqbTQBCTOQCrW",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://127.0.0.1:48820/events/demo-ev-1/amendments/demo-amend-1?_rsc=UznkqbTQBCTOQCrW",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://127.0.0.1:48820/events/demo-ev-1?_rsc=JRrPqf6nhMV3vMxx",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://127.0.0.1:48820/events/demo-ev-1?_rsc=fmwFQblV4XPstTey",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://127.0.0.1:48820/events/demo-ev-1?_rsc=JRrPqf6nhMV3vMxx",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "timestamp": "2026-10-19T13:42:20.999Z"
+}
