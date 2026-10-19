@@ -8,6 +8,7 @@ import { mockRegisterEvent } from "@/lib/mock-adapter";
 import { saveEventDraft, getEventDraft, deleteEventDraft } from "@/lib/idb";
 import { trackTransaction } from "@/lib/tx-controller";
 import { ParticipantScenario, RuleDimension } from "@/lib/types";
+import { SYNTHETIC_QA_FIXTURE } from "@/lib/fixtures";
 
 export default function NewEventPage() {
   const router = useRouter();
@@ -43,6 +44,7 @@ export default function NewEventPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draftSavedNotice, setDraftSavedNotice] = useState(false);
+  const [showConfirmOverwrite, setShowConfirmOverwrite] = useState(false);
 
   useEffect(() => {
     setIsDemo(localStorage.getItem("rf_demo_mode") === "true");
@@ -91,6 +93,27 @@ export default function NewEventPage() {
     } catch (e) {
       console.error("Failed to save draft:", e);
     }
+  };
+
+  const applySyntheticQA = () => {
+    setName(SYNTHETIC_QA_FIXTURE.name);
+    setDescription(SYNTHETIC_QA_FIXTURE.description);
+    setEventUrl(SYNTHETIC_QA_FIXTURE.eventUrl);
+    setDeclaredStart(SYNTHETIC_QA_FIXTURE.declaredStart);
+    setDeclaredDeadline(SYNTHETIC_QA_FIXTURE.declaredDeadline);
+    setInitialRules(SYNTHETIC_QA_FIXTURE.initialRules);
+    setScenarios(SYNTHETIC_QA_FIXTURE.scenarios);
+    setShowConfirmOverwrite(false);
+    setError(null);
+  };
+
+  const loadSyntheticQA = () => {
+    const isDirty = name.trim().length > 0 || description.trim().length > 0;
+    if (isDirty) {
+      setShowConfirmOverwrite(true);
+      return;
+    }
+    applySyntheticQA();
   };
 
   const addScenario = () => {
@@ -225,9 +248,73 @@ export default function NewEventPage() {
     <div style={{ maxWidth: "800px", margin: "0 auto" }}>
       <div style={{ marginBottom: "24px" }}>
         <h1 style={{ fontSize: "1.8rem", fontWeight: 700 }}>Register Event Baseline</h1>
-        <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
+        <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "16px" }}>
           Freeze the initial rule set and participant scenario probes on GenLayer Studionet.
         </p>
+
+        <div
+          style={{
+            background: "var(--bg-subtle)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "6px",
+            padding: "10px 14px",
+            marginBottom: "16px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>Synthetic QA Fixture (Section 8)</div>
+              <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
+                Loads clean, non-sensitive public test baseline and 3 scenario probes.
+              </div>
+            </div>
+            {!showConfirmOverwrite && (
+              <button
+                type="button"
+                onClick={loadSyntheticQA}
+                id="btn-load-synthetic-qa"
+                className="rf-btn rf-btn-secondary rf-btn-sm"
+              >
+                Load synthetic QA example
+              </button>
+            )}
+          </div>
+
+          {showConfirmOverwrite && (
+            <div
+              style={{
+                marginTop: "10px",
+                paddingTop: "10px",
+                borderTop: "1px solid var(--border-subtle)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+              }}
+            >
+              <span style={{ fontSize: "0.82rem", color: "var(--color-warning)" }}>
+                Current form has unsaved edits. Overwrite with official Section 8 fixture?
+              </span>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  type="button"
+                  onClick={applySyntheticQA}
+                  id="btn-confirm-overwrite-qa"
+                  className="rf-btn rf-btn-primary rf-btn-sm"
+                >
+                  Yes, Overwrite
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmOverwrite(false)}
+                  className="rf-btn rf-btn-secondary rf-btn-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {draftSavedNotice && (
