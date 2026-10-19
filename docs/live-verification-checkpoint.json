@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-19T14:35:00Z",
+  "timestamp": "2026-10-19T14:45:00Z",
   "app": "RuleFreeze",
   "version": "1.0.0",
   "contract": {
@@ -28,6 +28,10 @@
   },
   "pre_submission_state": {
     "get_event_count": 0
+  },
+  "fixture_state": {
+    "deadline_consistency": "verified",
+    "sc_c_explicit": "verified"
   },
   "blocker": {
     "code": "BLOCKED_WALLET_SESSION",

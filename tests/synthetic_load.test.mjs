@@ -35,7 +35,21 @@ test("Load synthetic QA example button on /events/new loads Section 8 baseline",
     const content = await page.content();
     assert.ok(content.includes("Public repository, no hosted frontend"));
     assert.ok(content.includes("Public repository and hosted frontend"));
-    assert.ok(content.includes("One person with two wallets"));
+    assert.ok(content.includes("One person submitting two entries via different wallets"));
+    assert.ok(content.includes("wallet A and a second entry through wallet B"));
+    assert.ok(content.includes("Is this person's second entry allowed?"));
+    assert.ok(
+      rulesVal.includes(
+        "Final submissions must be submitted no later than 2026-11-15 at 23:59:59 UTC."
+      )
+    );
+
+    // Verify deadline input field matches metadata
+    const deadlineVal = await page.inputValue('input[placeholder*="2026-11-15T23:59:59Z"]');
+    assert.equal(deadlineVal, "2026-11-15T23:59:59Z");
+
+    // Verify form was not automatically submitted (still on /events/new)
+    assert.ok(page.url().endsWith("/events/new"));
   } finally {
     await browser.close();
   }
