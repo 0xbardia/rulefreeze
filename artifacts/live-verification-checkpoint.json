@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-19T15:05:00Z",
+  "timestamp": "2026-10-19T15:15:00Z",
   "app": "RuleFreeze",
   "version": "1.0.0",
   "contract": {
@@ -8,9 +8,11 @@
     "constructor_args": [],
     "deployed_address": "0xC8a83C62da126891aB8F60e6D5E171480aE91c23",
     "deployment_tx": "0x6483f0dbd636be740bcbb9e64ee0780bbd4dad5078f4597f7e3e8ba5aa9f1bb7",
-    "deployment_protocol_status": "ACCEPTED",
+    "deployment_protocol_status": "FINALIZED",
+    "deployment_receipt_status": "0x1",
+    "deployment_finality": "FINALIZED_SUCCESS",
     "execution_result": "SUCCESS",
-    "finality_status": "UNVERIFIED"
+    "evidence_file": "artifacts/deployment-evidence.json"
   },
   "network": {
     "name": "GenLayer Studionet",
@@ -27,8 +29,8 @@
   },
   "milestones": {
     "local_and_direct_vm": "PASS_LOCAL",
+    "deployment": "FINALIZED_SUCCESS",
     "rpc_and_contract_reads": "LIVE_RPC_AND_CONTRACT_READS_VERIFIED",
-    "deployment": "DEPLOYMENT_ACCEPTED_FINALITY_UNVERIFIED",
     "application_live_writes": "NOT_RUN",
     "live_semantic_assessment": "NOT_RUN",
     "real_wallet_e2e": "BLOCKED_EXTERNAL",
@@ -38,14 +40,25 @@
     "get_event_count": 0
   },
   "id_routing": {
-    "live_event_pattern": "ev-<number>",
-    "demo_event_pattern": "demo-ev-<number>",
+    "grammar": {
+      "live_event": "^ev-[1-9]\\d*$",
+      "live_amendment": "^amend-[1-9]\\d*$",
+      "live_version": "^ver-[1-9]\\d*$",
+      "live_assessment": "^assess-[1-9]\\d*$",
+      "demo_event": "^demo-ev-[1-9]\\d*$",
+      "demo_amendment": "^demo-amend-[1-9]\\d*$"
+    },
+    "parameterized_tests_passed": 15,
     "fail_safe_verified": true,
     "mock_fallback_on_live_error": false
   },
+  "header_workaround": {
+    "decision": "REMOVED",
+    "evidence": "Studio JSON-RPC endpoint responds identically to standard HTTP requests without custom headers. Removed to avoid non-standard browser fetch behavior."
+  },
   "blocker": {
     "code": "BLOCKED_EXTERNAL",
-    "reason": "Automated headless browser lacks an interactive Web3 extension (MetaMask/Rabby). Real signature requires user-assisted browser handoff."
+    "reason": "Automated headless browser environment lacks an interactive Web3 extension (MetaMask/Rabby). Real signature requires user-assisted browser handoff."
   },
   "next_required_action": "USER_BASELINE_SIGNATURE_SUBMIT"
 }

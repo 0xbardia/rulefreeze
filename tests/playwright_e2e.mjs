@@ -104,9 +104,11 @@ async function run() {
 
     // 8. Diagnostics Page
     console.log("Testing 8: Diagnostics & Setup Page");
-    await page.goto(`${BASE_URL}/diagnostics`, { waitUntil: "networkidle" });
+    await page.goto(`${BASE_URL}/diagnostics`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector("h1");
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "08_desktop_diagnostics.png") });
+    // wait for live policy or config to render
+    await page.waitForSelector(".rf-card");
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "08_desktop_diagnostics.png"), timeout: 15000 });
 
     // 9. Mobile Viewport (360x800)
     console.log("Testing 9: Mobile Viewport (360px width)");

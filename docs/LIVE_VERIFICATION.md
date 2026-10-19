@@ -10,8 +10,9 @@
 **Constructor Arguments:** None (`__init__()` has 0 arguments)  
 **Deployed Contract Address:** `0xC8a83C62da126891aB8F60e6D5E171480aE91c23`  
 **Deployment Transaction:** `0x6483f0dbd636be740bcbb9e64ee0780bbd4dad5078f4597f7e3e8ba5aa9f1bb7`  
-**Deployment Protocol Status:** `ACCEPTED` (Observed via Studio consensus rounds: Proposing -> Committing -> Revealing -> Accepted)  
-**Deployment Finality:** `UNVERIFIED` (Contract creation provisionally accepted; finality polling remains read-only)  
+**Deployment Protocol Status:** `FINALIZED` (Verified via `gen_getTransactionStatus`: `"FINALIZED"`)  
+**Deployment Receipt Status:** `0x1` (Success in `eth_getTransactionReceipt`)  
+**Deployment Finality:** `FINALIZED_SUCCESS` (Quorum reached: 3 AGREE, 2 IDLE, result: 6 SUCCESS; evidence in `artifacts/deployment-evidence.json`)  
 **Execution Result:** `SUCCESS` (Contract instantiated, live reads operational)  
 **Explorer URL:** `https://explorer-studio.genlayer.com/address/0xC8a83C62da126891aB8F60e6D5E171480aE91c23`  
 
@@ -22,7 +23,7 @@
 | # | Milestone | Status | Evidence / Notes |
 |---|---|---|---|
 | 1 | Canonical Studio deployment source verified | PASS | `/root/X/contracts/main.py` verified; SHA-256 `42cc031d...0396`; 18 pytest tests pass |
-| 2 | Manual Studio deployment completed | PASS | Deployed via Studio UI; Tx `0x6483f0dbd636be740bcbb9e64ee0780bbd4dad5078f4597f7e3e8ba5aa9f1bb7` |
+| 2 | Manual Studio deployment completed | PASS | Deployed via Studio UI; Tx `0x6483f0dbd636be740bcbb9e64ee0780bbd4dad5078f4597f7e3e8ba5aa9f1bb7`; Status: FINALIZED_SUCCESS |
 | 3 | Deployment/source association documented | PASS | Source SHA-256 matches `main.py` deployed in Studio; zero constructor args |
 | 4 | Real contract address configured | PASS | `PUBLIC_CONTRACT_ADDRESS=0xC8a83C62da126891aB8F60e6D5E171480aE91c23` in `.env` and `ecosystem.config.cjs` |
 | 5 | Correct network confirmed | PASS | Studio RPC `0xf22f` (61999) verified responsive via JSON-RPC |
