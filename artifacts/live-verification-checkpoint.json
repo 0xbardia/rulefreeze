@@ -1,13 +1,14 @@
 {
-  "timestamp": "2026-10-19T14:05:00Z",
+  "timestamp": "2026-10-19T14:25:00Z",
   "app": "RuleFreeze",
   "version": "1.0.0",
   "contract": {
     "source_file": "/root/X/contracts/main.py",
     "sha256": "42cc031d0ba76e704e0b67c2df366139104e860fc41c71d79df082738d0e0396",
     "constructor_args": [],
-    "deployed_address": null,
-    "status": "WAITING_FOR_DEPLOYMENT"
+    "deployed_address": "0xC8a83C62da126891aB8F60e6D5E171480aE91c23",
+    "deployment_tx": "0x6483f0dbd636be740bcbb9e64ee0780bbd4dad5078f4597f7e3e8ba5aa9f1bb7",
+    "status": "DEPLOYED"
   },
   "network": {
     "name": "GenLayer Studionet",
@@ -23,6 +24,10 @@
     "port": 48820,
     "status": "online"
   },
+  "live_reads": {
+    "get_policy": "aa4d3e39dfa23ac718b5937158c73a85022acee2cb3a7d808a09ce7f233854f5",
+    "get_event_count": 0
+  },
   "pre_deployment_gate": {
     "tests_contract_pytest": "18_passed",
     "tests_ts_unit": "7_passed",
@@ -31,5 +36,5 @@
     "playwright_routes": "9_routes_passed_0_console_errors",
     "in_browser_rpc_headers": "verified_0xf22f"
   },
-  "next_required_action": "PROVIDE_ACTUAL_CONTRACT_ADDRESS"
+  "next_required_action": "USER_WALLET_APPROVAL_FOR_REGISTER_EVENT"
 }

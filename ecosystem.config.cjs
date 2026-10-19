@@ -9,6 +9,7 @@ module.exports = {
         NODE_ENV: "production",
         PORT: "48820",
         HOST: "0.0.0.0",
+        PUBLIC_CONTRACT_ADDRESS: "0xC8a83C62da126891aB8F60e6D5E171480aE91c23",
         PUBLIC_GENLAYER_RPC_URL: "https://studio.genlayer.com/api",
         PUBLIC_GENLAYER_CHAIN_ID: "61999",
       },
