@@ -95,7 +95,7 @@ export default function NewEventPage() {
     }
   };
 
-  const applySyntheticQA = () => {
+  const applySyntheticQA = async () => {
     setName(SYNTHETIC_QA_FIXTURE.name);
     setDescription(SYNTHETIC_QA_FIXTURE.description);
     setEventUrl(SYNTHETIC_QA_FIXTURE.eventUrl);
@@ -105,6 +105,23 @@ export default function NewEventPage() {
     setScenarios(SYNTHETIC_QA_FIXTURE.scenarios);
     setShowConfirmOverwrite(false);
     setError(null);
+
+    try {
+      await saveEventDraft({
+        id: "active_draft",
+        name: SYNTHETIC_QA_FIXTURE.name,
+        description: SYNTHETIC_QA_FIXTURE.description,
+        event_url: SYNTHETIC_QA_FIXTURE.eventUrl,
+        declared_start: SYNTHETIC_QA_FIXTURE.declaredStart,
+        declared_deadline: SYNTHETIC_QA_FIXTURE.declaredDeadline,
+        initial_rules: SYNTHETIC_QA_FIXTURE.initialRules,
+        scenarios: SYNTHETIC_QA_FIXTURE.scenarios,
+        account: account || "anonymous",
+        updatedAt: Date.now(),
+      });
+    } catch (e) {
+      console.warn("Draft persistence notice:", e);
+    }
   };
 
   const loadSyntheticQA = () => {

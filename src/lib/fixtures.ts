@@ -12,7 +12,7 @@ export const SYNTHETIC_QA_FIXTURE = {
   initialRules:
     "1. Eligibility: One entry per person.\n" +
     "2. Deliverables: A public source repository is required. A live hosted frontend is optional.\n" +
-    "3. Deadlines: Final submissions due Friday before 23:59 UTC.\n" +
+    "3. Deadlines: Final submissions must be submitted no later than 2026-11-15 at 23:59:59 UTC.\n" +
     "4. Scoring: Functionality accounts for 70% of scoring. Presentation accounts for 30%.",
   scenarios: [
     {
@@ -31,9 +31,9 @@ export const SYNTHETIC_QA_FIXTURE = {
     },
     {
       id: "SC-C",
-      title: "One person with two wallets",
-      situation: "One person using two different wallet addresses submits two entries.",
-      question: "Is the second entry allowed?",
+      title: "One person submitting two entries via different wallets",
+      situation: "One person submits one entry through wallet A and a second entry through wallet B.",
+      question: "Is this person's second entry allowed?",
       dimension: "ELIGIBILITY",
     },
   ] as ParticipantScenario[],

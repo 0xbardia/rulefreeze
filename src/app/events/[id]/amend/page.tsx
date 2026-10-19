@@ -37,7 +37,7 @@ export default function ProposeAmendmentPage({ params }: { params: Promise<{ id:
       try {
         let ev: EventRecord;
         let ver: RuleVersion;
-        if (demo || !cfg.contractAddress) {
+        if (demo || !cfg.contractAddress || eventId.startsWith("demo-")) {
           ev = await mockFetchEvent(eventId);
           ver = await mockFetchRuleVersion(ev.active_version_id);
         } else {

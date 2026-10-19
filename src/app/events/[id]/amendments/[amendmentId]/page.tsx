@@ -68,7 +68,7 @@ export default function AmendmentReviewPage({
       let baseV: RuleVersion;
       let assess: AssessmentRecord | null = null;
 
-      if (demo || !cfg.contractAddress) {
+      if (demo || !cfg.contractAddress || eventId.startsWith("demo-")) {
         ev = await mockFetchEvent(eventId);
         am = await mockFetchAmendment(amendmentId);
         baseV = await mockFetchRuleVersion(am.base_version_id);

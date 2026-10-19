@@ -25,7 +25,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
     getPublicConfig().then(async (cfg) => {
       try {
-        if (demo || !cfg.contractAddress) {
+        if (demo || !cfg.contractAddress || eventId.startsWith("demo-")) {
           const ev = await mockFetchEvent(eventId);
           const vers = await mockFetchEventVersions(eventId);
           const amends = await mockFetchEventAmendments(eventId);
