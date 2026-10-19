@@ -7,6 +7,7 @@ import { executeContractWrite, fetchEvent, fetchRuleVersion, getInjectedProvider
 import { mockFetchEvent, mockFetchRuleVersion, mockProposeAmendment } from "@/lib/mock-adapter";
 import { DiffViewer } from "@/components/DiffViewer";
 import { saveAmendmentDraft, getAmendmentDraft, deleteAmendmentDraft } from "@/lib/idb";
+import { isDemoEventId, isLiveEventId } from "@/lib/id-routing";
 import { trackTransaction } from "@/lib/tx-controller";
 import { EventRecord, IntendedScope, RuleVersion } from "@/lib/types";
 
@@ -37,12 +38,22 @@ export default function ProposeAmendmentPage({ params }: { params: Promise<{ id:
       try {
         let ev: EventRecord;
         let ver: RuleVersion;
-        if (demo || !cfg.contractAddress || eventId.startsWith("demo-")) {
+        if (isDemoEventId(eventId)) {
+          setIsDemo(true);
           ev = await mockFetchEvent(eventId);
           ver = await mockFetchRuleVersion(ev.active_version_id);
-        } else {
+        } else if (isLiveEventId(eventId)) {
+          if (demo) {
+            throw new Error(`Event "${eventId}" is a live on-chain ID, but Demo Mode is active. Switch off Demo Mode in the header.`);
+          }
+          if (!cfg.contractAddress) {
+            throw new Error("Contract address is not configured. Cannot propose amendment for live event.");
+          }
+          setIsDemo(false);
           ev = await fetchEvent(cfg.contractAddress, eventId, cfg.rpcUrl);
           ver = await fetchRuleVersion(cfg.contractAddress, ev.active_version_id, cfg.rpcUrl);
+        } else {
+          throw new Error(`Invalid event ID format "${eventId}". Expected "ev-<number>" or "demo-ev-<number>".`);
         }
         setEvent(ev);
         setActiveVersion(ver);

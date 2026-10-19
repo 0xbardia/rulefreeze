@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-19T14:45:00Z",
+  "timestamp": "2026-10-19T15:05:00Z",
   "app": "RuleFreeze",
   "version": "1.0.0",
   "contract": {
@@ -8,17 +8,16 @@
     "constructor_args": [],
     "deployed_address": "0xC8a83C62da126891aB8F60e6D5E171480aE91c23",
     "deployment_tx": "0x6483f0dbd636be740bcbb9e64ee0780bbd4dad5078f4597f7e3e8ba5aa9f1bb7",
-    "deployment_status": "ACCEPTED",
+    "deployment_protocol_status": "ACCEPTED",
     "execution_result": "SUCCESS",
-    "finality_observed": false
+    "finality_status": "UNVERIFIED"
   },
   "network": {
     "name": "GenLayer Studionet",
     "chainId": 61999,
     "chainIdHex": "0xf22f",
     "rpcUrl": "https://studio.genlayer.com/api",
-    "verified": true,
-    "browser_fetch_verified": true
+    "verified": true
   },
   "process": {
     "pm2_id": 17,
@@ -26,15 +25,26 @@
     "port": 48820,
     "status": "online"
   },
+  "milestones": {
+    "local_and_direct_vm": "PASS_LOCAL",
+    "rpc_and_contract_reads": "LIVE_RPC_AND_CONTRACT_READS_VERIFIED",
+    "deployment": "DEPLOYMENT_ACCEPTED_FINALITY_UNVERIFIED",
+    "application_live_writes": "NOT_RUN",
+    "live_semantic_assessment": "NOT_RUN",
+    "real_wallet_e2e": "BLOCKED_EXTERNAL",
+    "overall_project_acceptance": "INCOMPLETE"
+  },
   "pre_submission_state": {
     "get_event_count": 0
   },
-  "fixture_state": {
-    "deadline_consistency": "verified",
-    "sc_c_explicit": "verified"
+  "id_routing": {
+    "live_event_pattern": "ev-<number>",
+    "demo_event_pattern": "demo-ev-<number>",
+    "fail_safe_verified": true,
+    "mock_fallback_on_live_error": false
   },
   "blocker": {
-    "code": "BLOCKED_WALLET_SESSION",
+    "code": "BLOCKED_EXTERNAL",
     "reason": "Automated headless browser lacks an interactive Web3 extension (MetaMask/Rabby). Real signature requires user-assisted browser handoff."
   },
   "next_required_action": "USER_BASELINE_SIGNATURE_SUBMIT"

@@ -21,6 +21,7 @@ import {
 } from "@/lib/mock-adapter";
 import { DiffViewer } from "@/components/DiffViewer";
 import { trackTransaction } from "@/lib/tx-controller";
+import { isDemoEventId, isLiveEventId, isDemoAmendmentId, isLiveAmendmentId } from "@/lib/id-routing";
 import {
   AmendmentRecord,
   AssessmentRecord,
@@ -68,14 +69,22 @@ export default function AmendmentReviewPage({
       let baseV: RuleVersion;
       let assess: AssessmentRecord | null = null;
 
-      if (demo || !cfg.contractAddress || eventId.startsWith("demo-")) {
+      if (isDemoEventId(eventId) && isDemoAmendmentId(amendmentId)) {
+        setIsDemo(true);
         ev = await mockFetchEvent(eventId);
         am = await mockFetchAmendment(amendmentId);
         baseV = await mockFetchRuleVersion(am.base_version_id);
         if (am.assessment_ids.length > 0) {
           assess = await mockFetchAssessment(am.assessment_ids[am.assessment_ids.length - 1]!);
         }
-      } else {
+      } else if (isLiveEventId(eventId) && isLiveAmendmentId(amendmentId)) {
+        if (demo) {
+          throw new Error(`Event "${eventId}" and amendment "${amendmentId}" are live on-chain records, but Demo Mode is active. Switch off Demo Mode in the header.`);
+        }
+        if (!cfg.contractAddress) {
+          throw new Error("Contract address is not configured. Cannot review live on-chain amendment.");
+        }
+        setIsDemo(false);
         ev = await fetchEvent(cfg.contractAddress, eventId, cfg.rpcUrl);
         am = await fetchAmendment(cfg.contractAddress, amendmentId, cfg.rpcUrl);
         baseV = await fetchRuleVersion(cfg.contractAddress, am.base_version_id, cfg.rpcUrl);
@@ -86,6 +95,10 @@ export default function AmendmentReviewPage({
             cfg.rpcUrl
           );
         }
+      } else {
+        throw new Error(
+          `Invalid route IDs: event "${eventId}" or amendment "${amendmentId}". Expected live IDs ("ev-<number>", "amend-<number>") or demo IDs ("demo-ev-<number>", "demo-amend-<number>").`
+        );
       }
 
       setEvent(ev);

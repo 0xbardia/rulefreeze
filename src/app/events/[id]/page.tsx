@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { getPublicConfig } from "@/lib/config";
-import { fetchEvent, fetchEventVersions, fetchEventAmendments } from "@/lib/contract-adapter";
+import { fetchEvent, fetchEventAmendments, fetchEventVersions } from "@/lib/contract-adapter";
 import { mockFetchEvent, mockFetchEventVersions, mockFetchEventAmendments } from "@/lib/mock-adapter";
+import { isDemoEventId, isLiveEventId } from "@/lib/id-routing";
 import { AmendmentRecord, EventRecord, RuleVersion } from "@/lib/types";
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,7 +26,9 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
     getPublicConfig().then(async (cfg) => {
       try {
-        if (demo || !cfg.contractAddress || eventId.startsWith("demo-")) {
+        if (isDemoEventId(eventId)) {
+          // Explicit demo event ID
+          setIsDemo(true);
           const ev = await mockFetchEvent(eventId);
           const vers = await mockFetchEventVersions(eventId);
           const amends = await mockFetchEventAmendments(eventId);
@@ -34,7 +37,15 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           setAmendments(amends);
           const act = vers.find((v) => v.id === ev.active_version_id) || vers[0] || null;
           setActiveVersion(act);
-        } else {
+        } else if (isLiveEventId(eventId)) {
+          // Explicit live on-chain event ID
+          if (demo) {
+            throw new Error(`Event "${eventId}" is a live on-chain ID, but Demo Mode is active. Switch off Demo Mode in the header.`);
+          }
+          if (!cfg.contractAddress) {
+            throw new Error("Contract address is not configured. Cannot read live on-chain event.");
+          }
+          setIsDemo(false);
           const ev = await fetchEvent(cfg.contractAddress, eventId, cfg.rpcUrl);
           const vers = await fetchEventVersions(cfg.contractAddress, eventId, cfg.rpcUrl);
           const amends = await fetchEventAmendments(cfg.contractAddress, eventId, cfg.rpcUrl);
@@ -43,6 +54,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           setAmendments(amends);
           const act = vers.find((v) => v.id === ev.active_version_id) || vers[0] || null;
           setActiveVersion(act);
+        } else {
+          throw new Error(`Invalid event ID format "${eventId}". Expected "ev-<number>" for live events or "demo-ev-<number>" for demo fixtures.`);
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : String(err));
