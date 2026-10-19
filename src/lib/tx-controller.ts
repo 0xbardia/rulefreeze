@@ -28,6 +28,27 @@ function notify(record: ChainTxRecord) {
   });
 }
 
+let fetchPatched = false;
+function patchStudioFetch() {
+  if (fetchPatched || typeof globalThis.fetch === "undefined") return;
+  const rpcOrigin = "https://studio.genlayer.com";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    if (String(input).startsWith(rpcOrigin)) {
+      try {
+        const headers = new Headers(init?.headers ?? {});
+        headers.set("Referer", `${rpcOrigin}/contracts`);
+        headers.set("User-Agent", "RuleFreeze/1.0");
+        return await originalFetch(input, { ...init, headers });
+      } catch {
+        return originalFetch(input, init);
+      }
+    }
+    return originalFetch(input, init);
+  };
+  fetchPatched = true;
+}
+
 /**
  * Tracks a submitted transaction until finalized, reverted, or timeout.
  * Updates IndexedDB on every state transition.
@@ -44,6 +65,7 @@ export async function trackTransaction(
   maxAttempts = 35,
   intervalMs = 3000
 ): Promise<ChainTxRecord> {
+  patchStudioFetch();
   const record: ChainTxRecord = {
     txHash,
     method,

@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-10-19T14:05:00Z",
+  "app": "RuleFreeze",
+  "version": "1.0.0",
+  "contract": {
+    "source_file": "/root/X/contracts/main.py",
+    "sha256": "42cc031d0ba76e704e0b67c2df366139104e860fc41c71d79df082738d0e0396",
+    "constructor_args": [],
+    "deployed_address": null,
+    "status": "WAITING_FOR_DEPLOYMENT"
+  },
+  "network": {
+    "name": "GenLayer Studionet",
+    "chainId": 61999,
+    "chainIdHex": "0xf22f",
+    "rpcUrl": "https://studio.genlayer.com/api",
+    "verified": true,
+    "browser_fetch_verified": true
+  },
+  "process": {
+    "pm2_id": 17,
+    "name": "rulefreeze-web",
+    "port": 48820,
+    "status": "online"
+  },
+  "pre_deployment_gate": {
+    "tests_contract_pytest": "18_passed",
+    "tests_ts_unit": "7_passed",
+    "typecheck": "clean",
+    "production_build": "clean",
+    "playwright_routes": "9_routes_passed_0_console_errors",
+    "in_browser_rpc_headers": "verified_0xf22f"
+  },
+  "next_required_action": "PROVIDE_ACTUAL_CONTRACT_ADDRESS"
+}

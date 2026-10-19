@@ -3,6 +3,7 @@
 
 import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
+import { getAddress } from "viem";
 import {
   DEFAULT_STUDIONET_CHAIN_ID,
   DEFAULT_STUDIONET_RPC,
@@ -80,8 +81,30 @@ export async function assertStudionetChain(provider: InjectedEthereumProvider): 
   }
 }
 
+let fetchPatched = false;
+function patchStudioFetch() {
+  if (fetchPatched || typeof globalThis.fetch === "undefined") return;
+  const rpcOrigin = "https://studio.genlayer.com";
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    if (String(input).startsWith(rpcOrigin)) {
+      try {
+        const headers = new Headers(init?.headers ?? {});
+        headers.set("Referer", `${rpcOrigin}/contracts`);
+        headers.set("User-Agent", "RuleFreeze/1.0");
+        return await originalFetch(input, { ...init, headers });
+      } catch {
+        return originalFetch(input, init);
+      }
+    }
+    return originalFetch(input, init);
+  };
+  fetchPatched = true;
+}
+
 /** Create read-only client */
 export function getReadClient(endpoint: string = DEFAULT_STUDIONET_RPC) {
+  patchStudioFetch();
   return createClient({
     chain: studionet,
     endpoint,
@@ -99,10 +122,12 @@ async function callReadMethod<T>(
     throw new ContractAdapterError("INVALID_CONTRACT_ADDRESS", `Invalid contract address: ${contractAddress}`);
   }
 
+  patchStudioFetch();
+  const checksummedAddress = getAddress(contractAddress);
   const client = getReadClient(endpoint);
   try {
     const raw = await client.readContract({
-      address: contractAddress as `0x${string}`,
+      address: checksummedAddress,
       functionName,
       args: args as any,
     });
@@ -219,6 +244,10 @@ export async function executeContractWrite(
 
   await assertStudionetChain(provider);
 
+  patchStudioFetch();
+  const checksummedContract = getAddress(contractAddress);
+  const checksummedAccount = getAddress(accountAddress);
+
   const client = createClient({
     chain: studionet,
     endpoint,
@@ -227,10 +256,10 @@ export async function executeContractWrite(
 
   try {
     const rawHash = await client.writeContract({
-      address: contractAddress as `0x${string}`,
+      address: checksummedContract,
       functionName,
       args: args as any,
-      account: { address: accountAddress as `0x${string}` } as any,
+      account: { address: checksummedAccount } as any,
       value: 0n,
       leaderOnly: false,
     });
