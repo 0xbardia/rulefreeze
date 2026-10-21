@@ -45,6 +45,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-test.txt
 
+      - name: Cache GenVM Direct VM SDK
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/gltest-direct
+          key: genvm-universal-v0.3.0-rc7-direct-cache
+
+      - name: Download and prepare GenVM runner bundle if uncached
+        run: |
+          mkdir -p ~/.cache/gltest-direct
+          if [ ! -f ~/.cache/gltest-direct/genvm-universal-v0.3.0-rc7.tar.xz ]; then
+            echo "Fetching genvm-runners-all.tar.xz from v0.3.0-rc7 release..."
+            curl -sSL -o ~/.cache/gltest-direct/genvm-universal-v0.3.0-rc7.tar.xz https://github.com/genlayerlabs/genvm/releases/download/v0.3.0-rc7/genvm-runners-all.tar.xz
+          fi
+
       - name: Run Contract Direct VM tests
         run: npm run test:contract
 
