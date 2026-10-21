@@ -138,15 +138,16 @@ export default function EventsPage() {
             <div key={ev.id} className="rf-card" style={{ marginBottom: 0 }}>
               <div className="rf-card-header">
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px", flexWrap: "wrap" }}>
                     <h2 style={{ fontSize: "1.2rem", fontWeight: 600 }}>
                       <Link href={`/events/${ev.id}`}>{ev.name}</Link>
                     </h2>
+                    <span className="rf-mono" style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>{ev.id}</span>
                     {ev.name.includes("[DEMO]") && (
                       <span className="rf-badge rf-badge-neutral">DEMO FIXTURE</span>
                     )}
                   </div>
-                  <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem" }}>{ev.description}</p>
+                  <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem", overflowWrap: "anywhere" }}>{ev.description}</p>
                 </div>
 
                 <div style={{ textAlign: "right" }}>

@@ -139,19 +139,19 @@ export default function DiagnosticsPage() {
         </div>
 
         <div style={{ display: "grid", gap: "10px", fontSize: "0.88rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "6px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "4px 12px", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "6px" }}>
             <span style={{ color: "var(--text-muted)" }}>PUBLIC_CONTRACT_ADDRESS:</span>
             <span className="rf-mono" style={{ color: config?.contractAddress ? "var(--color-safe)" : "var(--color-warning)" }}>
               {config?.contractAddress || "None (Not configured)"}
             </span>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "6px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "4px 12px", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "6px" }}>
             <span style={{ color: "var(--text-muted)" }}>PUBLIC_GENLAYER_RPC_URL:</span>
             <span className="rf-mono">{config?.rpcUrl || "Loading..."}</span>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "6px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "4px 12px", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "6px" }}>
             <span style={{ color: "var(--text-muted)" }}>PUBLIC_GENLAYER_CHAIN_ID:</span>
             <span className="rf-mono">{config?.chainId} (0x{config?.chainId.toString(16)})</span>
           </div>

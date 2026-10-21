@@ -89,7 +89,17 @@ export function getReadClient(endpoint: string = DEFAULT_STUDIONET_RPC) {
   });
 }
 
-/** Read helper: calls readContract and parses JSON string */
+const readInflight = new Map<string, Promise<unknown>>();
+
+function isRetryableReadError(message: string): boolean {
+  return /failed to fetch|network|timeout|timed out|rate limit|429|econn|socket|temporarily|cors|access-control/i.test(message);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Read helper: calls readContract and parses JSON string. Reads retry; writes do not. */
 async function callReadMethod<T>(
   contractAddress: string,
   functionName: string,
@@ -101,24 +111,45 @@ async function callReadMethod<T>(
   }
 
   const checksummedAddress = getAddress(contractAddress);
-  const client = getReadClient(endpoint);
-  try {
-    const raw = await client.readContract({
-      address: checksummedAddress,
-      functionName,
-      args: args as any,
-    });
-    if (typeof raw === "string") {
+  const key = `${endpoint}|${checksummedAddress}|${functionName}|${JSON.stringify(args)}`;
+  const existing = readInflight.get(key);
+  if (existing) return existing as Promise<T>;
+
+  const work = (async () => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const client = getReadClient(endpoint);
       try {
-        return JSON.parse(raw) as T;
-      } catch {
-        return raw as unknown as T;
+        const raw = await client.readContract({
+          address: checksummedAddress,
+          functionName,
+          args: args as any,
+        });
+        if (typeof raw === "string") {
+          try {
+            return JSON.parse(raw) as T;
+          } catch {
+            return raw as unknown as T;
+          }
+        }
+        return raw as T;
+      } catch (err: unknown) {
+        lastError = err;
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!isRetryableReadError(msg) || attempt === 3) {
+          throw new ContractAdapterError("READ_FAILED", `Failed to read ${functionName}(): ${msg}`, err);
+        }
+        await sleep(400 * (attempt + 1));
       }
     }
-    return raw as T;
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new ContractAdapterError("READ_FAILED", `Failed to read ${functionName}(): ${msg}`, err);
+    throw new ContractAdapterError("READ_FAILED", `Failed to read ${functionName}()`, lastError);
+  })();
+
+  readInflight.set(key, work);
+  try {
+    return await work;
+  } finally {
+    readInflight.delete(key);
   }
 }
 

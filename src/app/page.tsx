@@ -101,7 +101,7 @@ export default function HomePage() {
         <div className="rf-card" style={{ marginBottom: 0 }}>
           <h3 style={{ fontSize: "1.05rem", fontWeight: 600, marginBottom: "8px" }}>2. Semantic Assessment Engine</h3>
           <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)" }}>
-            Intelligent contracts test proposed amendments against participant scenarios using equivalence consensus and prompt-injection-resistant quote validation.
+            Intelligent contracts test proposed amendments against participant scenarios using equivalence consensus, structured assessment validation, and exact quotation grounding.
           </p>
         </div>
 

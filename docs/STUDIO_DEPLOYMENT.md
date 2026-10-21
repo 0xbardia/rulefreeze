@@ -7,11 +7,14 @@ This guide walks you through deploying the canonical RuleFreeze contract on GenL
 ## 1. Canonical Source File & Checksum
 
 - **Source File Path:** `X/contracts/main.py`
-- **SHA-256 Source Checksum:**
+- **SHA-256 Source Checksum (current `contracts/main.py`, contract 1.0.1):**
   ```
-  42cc031d0ba76e704e0b67c2df366139104e860fc41c71d79df082738d0e0396
+  f3b8b9ef09dd21755435e2bc55b5d0db84af5b93348c6655ea7ee9d520cc8177
   ```
+- **Historical source** for `0xC8a83C62da126891aB8F60e6D5E171480aE91c23` was `42cc031d0ba76e704e0b67c2df366139104e860fc41c71d79df082738d0e0396`. Do not treat that address as a deployment of the current file.
 - **Constructor Arguments:** None (`__init__()` has zero arguments).
+- **Identifiers:** contract `1.0.1`, schema `2`, evaluation policy `rulefreeze-eval-v1.1`.
+- **Studionet deployment of this source:** `0xeAaF5090d59d5fBf1D32a07A30D866E3469CF826`, transaction `0xed921c7720ba1c5bbf0d603a49d225f60100e654bf6a1018ede9792f311fef5f`. The historical contract `0xC8a83C62da126891aB8F60e6D5E171480aE91c23` remains the 1.0.0 deployment.
 
 ---
 

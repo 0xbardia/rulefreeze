@@ -82,13 +82,13 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       {/* Header bar */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px", flexWrap: "wrap", gap: "16px" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px", flexWrap: "wrap" }}>
             <span className="rf-badge rf-badge-brand rf-mono">{event.id}</span>
             <span className="rf-badge rf-badge-safe">Active Rule Version: {event.active_version_id}</span>
             {event.name.includes("[DEMO]") && <span className="rf-badge rf-badge-neutral">DEMO FIXTURE</span>}
           </div>
           <h1 style={{ fontSize: "2rem", fontWeight: 700 }}>{event.name}</h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", maxWidth: "700px", marginTop: "4px" }}>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", maxWidth: "700px", marginTop: "4px", overflowWrap: "anywhere" }}>
             {event.description}
           </p>
         </div>
@@ -170,7 +170,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               {activeVersion.scenarios.map((sc) => (
                 <div key={sc.id} className="rf-scenario-card" style={{ padding: "10px 14px", margin: 0 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <strong>{sc.title}</strong>
+                    <strong><span className="rf-mono" style={{ color: "var(--text-muted)", fontWeight: 500 }}>{sc.id}</span> {sc.title}</strong>
                     <span className="rf-badge rf-badge-neutral">{sc.dimension}</span>
                   </div>
                   <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "4px" }}>
@@ -218,8 +218,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                   gap: "12px",
                 }}
               >
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                <div style={{ minWidth: 0, flex: "1 1 240px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px", flexWrap: "wrap" }}>
                     <Link
                       href={`/events/${event.id}/amendments/${am.id}`}
                       style={{ fontWeight: 600, fontSize: "1rem" }}
@@ -241,7 +241,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                     </span>
                     <span className="rf-badge rf-badge-neutral">Scope: {am.intended_scope}</span>
                   </div>
-                  <div style={{ fontSize: "0.88rem", color: "var(--text-secondary)" }}>
+                  <div style={{ fontSize: "0.88rem", color: "var(--text-secondary)", overflowWrap: "anywhere" }}>
                     {am.explanation}
                   </div>
                   <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "4px" }}>

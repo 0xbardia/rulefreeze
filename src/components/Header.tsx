@@ -71,7 +71,7 @@ export function Header() {
   return (
     <header className="rf-header">
       <div className="rf-container rf-header-inner">
-        <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px 24px", flexWrap: "wrap", minWidth: 0 }}>
           <Link href="/" className="rf-brand">
             RuleFreeze
             <span className="rf-brand-tag">Registry</span>

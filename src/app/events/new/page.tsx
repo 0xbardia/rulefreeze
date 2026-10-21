@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { getPublicConfig } from "@/lib/config";
 import { executeContractWrite, getInjectedProvider } from "@/lib/contract-adapter";
 import { mockRegisterEvent } from "@/lib/mock-adapter";
-import { saveEventDraft, getEventDraft, deleteEventDraft } from "@/lib/idb";
+import { saveEventDraft, getEventDraft, deleteEventDraft, recordMatchesContract } from "@/lib/idb";
 import { trackTransaction } from "@/lib/tx-controller";
 import { ParticipantScenario, RuleDimension } from "@/lib/types";
 import { SYNTHETIC_QA_FIXTURE } from "@/lib/fixtures";
@@ -48,9 +48,18 @@ export default function NewEventPage() {
 
   useEffect(() => {
     setIsDemo(localStorage.getItem("rf_demo_mode") === "true");
-    getPublicConfig().then((cfg) => {
+    getPublicConfig().then(async (cfg) => {
       setContractAddress(cfg.contractAddress);
-    });
+      const draft = await getEventDraft("active_draft").catch(() => null);
+      if (!draft || !recordMatchesContract(draft, cfg.contractAddress)) return;
+      setName(draft.name || "");
+      setDescription(draft.description || "");
+      setEventUrl(draft.event_url || "");
+      setDeclaredStart(draft.declared_start || "");
+      setDeclaredDeadline(draft.declared_deadline || "");
+      if (draft.initial_rules) setInitialRules(draft.initial_rules);
+      if (draft.scenarios && draft.scenarios.length > 0) setScenarios(draft.scenarios);
+    }).catch(() => {});
 
     const provider = getInjectedProvider();
     if (provider) {
@@ -59,19 +68,6 @@ export default function NewEventPage() {
         if (a && a[0]) setAccount(a[0]);
       }).catch(() => {});
     }
-
-    // Try restoring draft from IndexedDB
-    getEventDraft("active_draft").then((draft) => {
-      if (draft) {
-        setName(draft.name || "");
-        setDescription(draft.description || "");
-        setEventUrl(draft.event_url || "");
-        setDeclaredStart(draft.declared_start || "");
-        setDeclaredDeadline(draft.declared_deadline || "");
-        if (draft.initial_rules) setInitialRules(draft.initial_rules);
-        if (draft.scenarios && draft.scenarios.length > 0) setScenarios(draft.scenarios);
-      }
-    }).catch(() => {});
   }, []);
 
   const saveDraftLocally = async () => {
@@ -86,6 +82,7 @@ export default function NewEventPage() {
         initial_rules: initialRules,
         scenarios,
         account: account || "anonymous",
+        contractAddress: contractAddress || undefined,
         updatedAt: Date.now(),
       });
       setDraftSavedNotice(true);
@@ -117,6 +114,7 @@ export default function NewEventPage() {
         initial_rules: SYNTHETIC_QA_FIXTURE.initialRules,
         scenarios: SYNTHETIC_QA_FIXTURE.scenarios,
         account: account || "anonymous",
+        contractAddress: contractAddress || undefined,
         updatedAt: Date.now(),
       });
     } catch (e) {

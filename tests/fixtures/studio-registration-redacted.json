@@ -1,0 +1,35 @@
+{
+  "note": "Redacted from Studionet getTransaction for 0xae9f63ec15b18b7029fb7fca527abbd2d67d550235a8362ef90773e85db2dd7e. Calldata, signatures, and validator addresses removed.",
+  "status": 7,
+  "statusName": "FINALIZED",
+  "result": 6,
+  "result_name": "MAJORITY_AGREE",
+  "txExecutionResult": null,
+  "appealed": false,
+  "last_round": {
+    "result": 6,
+    "validator_votes_name": ["IDLE", "IDLE", "AGREE", "AGREE", "AGREE"]
+  },
+  "consensus_data": {
+    "leader_receipt": [
+      {
+        "mode": "leader",
+        "vote": null,
+        "execution_result": "SUCCESS",
+        "result": { "status": "return" },
+        "genvm_result": { "error_code": null, "stderr": "" }
+      },
+      {
+        "mode": "validator",
+        "vote": "idle",
+        "execution_result": "ERROR",
+        "result": { "status": "contract_error" },
+        "genvm_result": {
+          "error_code": "CONSENSUS_VALIDATOR_QUORUM_REACHED",
+          "stderr": "Validator execution cancelled after quorum",
+          "raw_error": { "causes": ["VALIDATOR_QUORUM_REACHED"] }
+        }
+      }
+    ]
+  }
+}

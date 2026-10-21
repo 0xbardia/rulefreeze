@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { canSubmitDecision, viewAssessment } from "@/lib/assessment-status";
 import { getPublicConfig } from "@/lib/config";
 import {
   executeContractWrite,
@@ -215,17 +216,16 @@ export default function AmendmentReviewPage({
       return;
     }
 
-    if (decisionType === "ACCEPTED_CLARIFICATION") {
-      if (
-        assessment &&
-        (assessment.overall_classification === "MATERIAL_CHANGE" ||
-          assessment.overall_classification === "REVIEW_NEEDED")
-      ) {
-        setError(
-          `Cannot accept as clarification: Assessment found ${assessment.overall_classification}. You must use Acknowledged Material Change or Prospective Revision.`
-        );
-        return;
-      }
+    if (assessment && !canSubmitDecision(assessment, decisionType)) {
+      const view = viewAssessment(assessment);
+      setError(
+        view.kind === "processing"
+          ? `Cannot activate from an assessment processing failure (${view.stage}).`
+          : view.kind === "grounding"
+            ? "Cannot activate an assessment whose quotations are not grounded in the rule text."
+            : `Cannot use ${decisionType} for classification ${view.classification}.`
+      );
+      return;
     }
 
     setActionPending(true);
@@ -319,7 +319,7 @@ export default function AmendmentReviewPage({
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px", flexWrap: "wrap", gap: "12px" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", flexWrap: "wrap" }}>
             <Link href={`/events/${event.id}`}>← {event.name}</Link>
             <span className="rf-badge rf-badge-brand rf-mono">{amendment.id}</span>
             <span
@@ -357,7 +357,7 @@ export default function AmendmentReviewPage({
       )}
 
       {/* Stale Base Warning */}
-      {isStaleBase && (
+      {isStaleBase && !amendment.decision && (
         <div className="rf-banner rf-banner-warning">
           <div>
             <strong>Stale Base Version Detected:</strong> This amendment was proposed against{" "}
@@ -414,7 +414,26 @@ export default function AmendmentReviewPage({
 
         {assessment ? (
           <div>
-            {/* Verdict Box */}
+            {(() => {
+              const view = viewAssessment(assessment);
+              if (view.kind !== "processing") return null;
+              return (
+              <div className="rf-card" style={{ borderColor: "var(--color-danger)", marginBottom: "16px" }}>
+                <strong>Assessment processing failure</strong>
+                <p style={{ margin: "8px 0 0", color: "var(--text-secondary)" }}>
+                  This is not a completed semantic review. Stage: {view.stage}. {view.detail}
+                </p>
+              </div>
+              );
+            })()}
+            {viewAssessment(assessment).kind === "grounding" && (
+              <div className="rf-card" style={{ borderColor: "var(--color-warning)", marginBottom: "16px" }}>
+                <strong>Grounding failure</strong>
+                <p style={{ margin: "8px 0 0", color: "var(--text-secondary)" }}>
+                  The model output was parsed, but its quotations are not exact text from the registered rules. This is not a successful grounded analysis.
+                </p>
+              </div>
+            )}
             <div
               style={{
                 background: "var(--bg-subtle)",
@@ -427,7 +446,7 @@ export default function AmendmentReviewPage({
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
                 <div>
                   <span style={{ fontSize: "0.8rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>
-                    Overall Semantic Verdict
+                    {viewAssessment(assessment).kind === "semantic" ? "Overall Semantic Verdict" : "Not a semantic verdict"}
                   </span>
                   <div style={{ marginTop: "4px" }}>
                     <span
@@ -440,7 +459,7 @@ export default function AmendmentReviewPage({
                       }`}
                       style={{ fontSize: "0.95rem", padding: "6px 12px" }}
                     >
-                      {assessment.overall_classification}
+                      {assessment.overall_classification || (viewAssessment(assessment).kind === "processing" ? "PROCESSING_FAILURE" : "UNGROUNDED")}
                     </span>
                   </div>
                 </div>
@@ -491,6 +510,11 @@ export default function AmendmentReviewPage({
             <h3 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "12px" }}>
               Participant Scenario Probes ({assessment.scenarios.length})
             </h3>
+            {assessment.scenarios.length === 0 && (
+              <p style={{ color: "var(--color-danger)", fontSize: "0.9rem" }}>
+                No scenario outcomes were produced. Missing outcomes are not a successful comparison.
+              </p>
+            )}
             <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: "16px" }}>
               Comparing how the exact same participant situation evaluates under registered Base Rules vs Proposed Amendment.
             </p>
@@ -617,10 +641,7 @@ export default function AmendmentReviewPage({
                     value="ACCEPTED_CLARIFICATION"
                     checked={decisionType === "ACCEPTED_CLARIFICATION"}
                     onChange={() => setDecisionType("ACCEPTED_CLARIFICATION")}
-                    disabled={
-                      assessment?.overall_classification === "MATERIAL_CHANGE" ||
-                      assessment?.overall_classification === "REVIEW_NEEDED"
-                    }
+                    disabled={!assessment || !canSubmitDecision(assessment, "ACCEPTED_CLARIFICATION")}
                   />
                   <div>
                     <strong>Accept as Clarification (No Material Change)</strong>
@@ -643,6 +664,7 @@ export default function AmendmentReviewPage({
                     value="ACKNOWLEDGED_MATERIAL_CHANGE"
                     checked={decisionType === "ACKNOWLEDGED_MATERIAL_CHANGE"}
                     onChange={() => setDecisionType("ACKNOWLEDGED_MATERIAL_CHANGE")}
+                    disabled={!assessment || !canSubmitDecision(assessment, "ACKNOWLEDGED_MATERIAL_CHANGE")}
                   />
                   <div>
                     <strong>Activate with Acknowledged Material Change</strong>
@@ -659,6 +681,7 @@ export default function AmendmentReviewPage({
                     value="PROSPECTIVE_REVISION"
                     checked={decisionType === "PROSPECTIVE_REVISION"}
                     onChange={() => setDecisionType("PROSPECTIVE_REVISION")}
+                    disabled={!assessment || !canSubmitDecision(assessment, "PROSPECTIVE_REVISION")}
                   />
                   <div>
                     <strong>Activate as Prospective Revision (Future Submissions Only)</strong>

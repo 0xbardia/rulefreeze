@@ -51,7 +51,9 @@ export interface AssessmentRecord {
   proposed_hash: string;
   schema_version: number;
   policy_version: string;
-  overall_classification: OverallClassification;
+  result_kind?: "SEMANTIC" | "PROCESSING_FAILURE";
+  failure_stage?: string;
+  overall_classification: OverallClassification | "";
   changed_dimensions: RuleDimension[];
   scenarios: ScenarioAssessmentResult[];
   reasoning: string;
@@ -157,6 +159,7 @@ export type ChainTxStatus =
   | "ACCEPTED"
   | "FINALIZED"
   | "EXECUTION_FAILURE"
+  | "EXECUTION_UNKNOWN"
   | "CONSENSUS_DISAGREEMENT"
   | "TIMEOUT"
   | "RPC_UNAVAILABLE";
@@ -169,7 +172,10 @@ export interface ChainTxRecord {
   submittedAt: number;
   confirmedAt?: number;
   error?: string;
+  protocolStatus?: string;
   consensusResult?: string;
+  executionResult?: "SUCCESS" | "FAILURE" | "UNKNOWN";
+  executionContradictions?: string[];
   validatorVotes?: string[];
   entityId?: string;
   contractAddress: string;
@@ -191,6 +197,7 @@ export interface EventDraft {
   initial_rules: string;
   scenarios: ParticipantScenario[];
   account: string;
+  contractAddress?: string;
   updatedAt: number;
 }
 
@@ -202,6 +209,7 @@ export interface AmendmentDraft {
   explanation: string;
   intended_scope: IntendedScope;
   account: string;
+  contractAddress?: string;
   updatedAt: number;
 }
 

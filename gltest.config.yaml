@@ -1,0 +1,5 @@
+# Compiler and simulator output only. pytest/gltest deletes this directory on startup.
+# Persistent QA evidence lives in /root/X/evidence and must not be placed here.
+paths:
+  contracts: contracts
+  artifacts: /tmp/rulefreeze-gltest-artifacts

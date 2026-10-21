@@ -4,7 +4,74 @@
 import type { ChainTxRecord, EventDraft, AmendmentDraft } from "./types.ts";
 
 const DB_NAME = "RuleFreezeDB";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
+export const LEGACY_UNSCOPED_CONTRACT = "legacy-unscoped";
+
+export function upgradeRuleFreezeDB(
+  db: IDBDatabase,
+  transaction: IDBTransaction,
+  oldVersion: number
+): void {
+  if (oldVersion < 1) {
+    if (!db.objectStoreNames.contains("event_drafts")) {
+      const store = db.createObjectStore("event_drafts", { keyPath: "id" });
+      store.createIndex("by_account", "account", { unique: false });
+      store.createIndex("by_updated", "updatedAt", { unique: false });
+    }
+    if (!db.objectStoreNames.contains("amendment_drafts")) {
+      const store = db.createObjectStore("amendment_drafts", { keyPath: "id" });
+      store.createIndex("by_account", "account", { unique: false });
+      store.createIndex("by_event", "event_id", { unique: false });
+    }
+    if (!db.objectStoreNames.contains("tx_records")) {
+      const store = db.createObjectStore("tx_records", { keyPath: "txHash" });
+      store.createIndex("by_status", "status", { unique: false });
+      store.createIndex("by_account", "account", { unique: false });
+    }
+    if (!db.objectStoreNames.contains("preferences")) {
+      db.createObjectStore("preferences", { keyPath: "key" });
+    }
+  }
+
+  if (oldVersion < 2 && db.objectStoreNames.contains("tx_records")) {
+    const txStore = transaction.objectStore("tx_records");
+    if (!txStore.indexNames.contains("by_entity")) {
+      txStore.createIndex("by_entity", "entityId", { unique: false });
+    }
+  }
+
+  if (oldVersion < 3) {
+    if (db.objectStoreNames.contains("tx_records")) {
+      const txStore = transaction.objectStore("tx_records");
+      if (!txStore.indexNames.contains("by_contract")) {
+        txStore.createIndex("by_contract", "contractAddress", { unique: false });
+      }
+    }
+    for (const storeName of ["event_drafts", "amendment_drafts", "tx_records"]) {
+      if (!db.objectStoreNames.contains(storeName)) continue;
+      const store = transaction.objectStore(storeName);
+      const req = store.openCursor();
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (!cursor) return;
+        const value = cursor.value as { contractAddress?: string };
+        if (!value.contractAddress) {
+          value.contractAddress = LEGACY_UNSCOPED_CONTRACT;
+          cursor.update(value);
+        }
+        cursor.continue();
+      };
+    }
+  }
+}
+
+export function recordMatchesContract(
+  record: { contractAddress?: string },
+  contractAddress: string | null | undefined
+): boolean {
+  if (!contractAddress) return false;
+  return (record.contractAddress || "").toLowerCase() === contractAddress.toLowerCase();
+}
 
 export interface IDBPreferences {
   key: string;
@@ -14,7 +81,7 @@ export interface IDBPreferences {
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 export function openRuleFreezeDB(): Promise<IDBDatabase> {
-  if (typeof window === "undefined") {
+  if (typeof globalThis.indexedDB === "undefined") {
     return Promise.reject(new Error("IndexedDB is only available in browser environments."));
   }
 
@@ -25,40 +92,9 @@ export function openRuleFreezeDB(): Promise<IDBDatabase> {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
       request.onupgradeneeded = (event) => {
-        const db = request.result;
-        const oldVersion = event.oldVersion;
-
-        // Version 1: initial stores
-        if (oldVersion < 1) {
-          if (!db.objectStoreNames.contains("event_drafts")) {
-            const store = db.createObjectStore("event_drafts", { keyPath: "id" });
-            store.createIndex("by_account", "account", { unique: false });
-            store.createIndex("by_updated", "updatedAt", { unique: false });
-          }
-          if (!db.objectStoreNames.contains("amendment_drafts")) {
-            const store = db.createObjectStore("amendment_drafts", { keyPath: "id" });
-            store.createIndex("by_account", "account", { unique: false });
-            store.createIndex("by_event", "event_id", { unique: false });
-          }
-          if (!db.objectStoreNames.contains("tx_records")) {
-            const store = db.createObjectStore("tx_records", { keyPath: "txHash" });
-            store.createIndex("by_status", "status", { unique: false });
-            store.createIndex("by_account", "account", { unique: false });
-          }
-          if (!db.objectStoreNames.contains("preferences")) {
-            db.createObjectStore("preferences", { keyPath: "key" });
-          }
-        }
-
-        // Version 2 migration: add schema version metadata and ensure indexes
-        if (oldVersion < 2) {
-          if (db.objectStoreNames.contains("tx_records")) {
-            const txStore = request.transaction?.objectStore("tx_records");
-            if (txStore && !txStore.indexNames.contains("by_entity")) {
-              txStore.createIndex("by_entity", "entityId", { unique: false });
-            }
-          }
-        }
+        const tx = request.transaction;
+        if (!tx) return;
+        upgradeRuleFreezeDB(request.result, tx, event.oldVersion);
       };
 
       request.onsuccess = () => resolve(request.result);
@@ -211,7 +247,7 @@ export async function getTxRecord(txHash: string): Promise<ChainTxRecord | null>
   });
 }
 
-export async function listPendingTxRecords(): Promise<ChainTxRecord[]> {
+export async function listPendingTxRecords(contractAddress?: string | null): Promise<ChainTxRecord[]> {
   const db = await openRuleFreezeDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("tx_records", "readonly");
@@ -220,7 +256,8 @@ export async function listPendingTxRecords(): Promise<ChainTxRecord[]> {
     req.onsuccess = () => {
       const all = (req.result || []) as ChainTxRecord[];
       const pending = all.filter((r) =>
-        ["SUBMITTED", "PENDING_NETWORK", "ACCEPTED", "AWAITING_WALLET"].includes(r.status)
+        ["SUBMITTED", "PENDING_NETWORK", "ACCEPTED", "AWAITING_WALLET"].includes(r.status) &&
+        (!contractAddress || recordMatchesContract(r, contractAddress))
       );
       resolve(pending);
     };

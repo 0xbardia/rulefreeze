@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import {
-  DEFAULT_STUDIONET_CHAIN_ID,
   DEFAULT_STUDIONET_RPC,
   isValidContractAddress,
 } from "@/lib/config";
+import { APP_VERSION } from "@/lib/release";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +51,14 @@ export async function GET() {
   return NextResponse.json({
     status: "ok",
     app: "RuleFreeze",
-    version: "1.0.0",
+    appVersion: APP_VERSION,
+    version: APP_VERSION,
+    versionDomains: {
+      appVersion: APP_VERSION,
+      contractVersion: { source: "deployed-contract-get_policy" },
+      schemaVersion: { source: "deployed-contract-get_policy" },
+      evaluationPolicyVersion: { source: "deployed-contract-get_policy" },
+    },
     timestamp: new Date().toISOString(),
     contract: {
       configured: validAddress,

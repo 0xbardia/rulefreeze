@@ -22,7 +22,14 @@ raw = gl.nondet.exec_prompt(prompt, response_format="json")
 ```
 - Inputs are hoisted and normalized so every validator receives an identical byte-for-byte prompt.
 - Untrusted user rules and explanations are wrapped in strict textual fences.
-- `response_format="json"` enforces structured JSON syntax.
+- Official GenLayer docs (Calling LLMs, checked 2026-10-20) and the GenVM SDK schema say `response_format="json"` returns a parsed object: `{"ok": Object}`. The pinned `v0.3.0-rc7` overload is typed `dict[str, Any]`. Its docstring `rtype` still says `str`; the overload and implementation take precedence.
+- Contract `1.0.1` validates that dict directly. A string is decoded once with `json.loads`. `str(dict)` is not valid JSON and is classified as `OUTPUT_FORMAT`, not as a semantic verdict.
+- Text mode remains a string. This contract does not use text mode for assessments.
+
+### D. Read transport (observed 2026-10-20)
+A single `eth_chainId` POST from origin `http://127.0.0.1:48820` returned HTTP 200, body `{"result":"0xf22f"}`, `access-control-allow-origin: http://127.0.0.1:48820`, and a read bucket of 300 per minute (`x-ratelimit-remaining: 299` on that sample). The same origin also received `access-control-allow-origin` on `gen_getTransactionStatus`, `eth_getTransactionByHash`, and `eth_getTransactionReceipt`. `gen_getTransaction` is not a method (`-32601`) and was counted on a separate `standard` bucket with limit 30.
+
+Earlier browser sessions reported `Failed to fetch` together with a CORS message during read bursts. Those failing responses were not captured, so this sample does not prove the burst was rate limiting rather than a missing CORS header on an error response. The client retries only reads that match fetch, network, timeout, 429, or CORS failures, at most four attempts, and deduplicates identical in-flight reads. Writes are not retried. Spoofed `Referer` or `Origin` headers are not added.
 
 ### B. Comparative Consensus Principle
 ```python
@@ -79,6 +86,6 @@ Transactions proceed through statuses:
 1. `PENDING_WALLET` (user prompt in MetaMask/Rabby)
 2. `SUBMITTED` (hash returned by client)
 3. `PENDING_NETWORK` (polling node)
-4. `ACCEPTED` / `FINALIZED` (execution verified with `txExecutionResult === 0`)
-5. `EXECUTION_FAILURE` (contract reverted or validation failed)
+4. `ACCEPTED` / `FINALIZED` only after explicit execution evidence. Studio responses often omit `txExecutionResult`. A missing field is `UNKNOWN`, not success. On this SDK, `txExecutionResult` `1` is `FINISHED_WITH_RETURN` and `2` is `FINISHED_WITH_ERROR`. `0` is `NOT_VOTED`, not success. Leader receipts are separate from validator quorum-termination receipts.
+5. `EXECUTION_FAILURE` when explicit execution evidence says the call failed. `MAJORITY_AGREE` is a consensus result and is not itself an execution error.
 6. `TIMEOUT` (bounded polling reached limit without network resolution; does not re-transmit)

@@ -5,7 +5,8 @@ import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 import { DEFAULT_STUDIONET_RPC } from "./config.ts";
 import { saveTxRecord } from "./idb.ts";
-import type { ChainTxRecord, ChainTxStatus } from "./types.ts";
+import { parseTransactionOutcome, rollupTransaction } from "./tx-result.ts";
+import type { ChainTxRecord } from "./types.ts";
 
 export interface TransactionListener {
   (record: ChainTxRecord): void;
@@ -68,47 +69,23 @@ export async function trackTransaction(
     try {
       const tx = await client.getTransaction({ hash: txHash as any });
       if (tx) {
-        const statusName = String(tx.statusName || "").toUpperCase();
-        const consensusVotes = tx.lastRound?.validatorVotesName;
-        const consensusResult = tx.lastRound?.result ? String(tx.lastRound.result) : undefined;
-
-        if (statusName === "FINALIZED" || statusName === "ACCEPTED") {
-          // Verify execution result (0 = success in GenLayer)
-          const execRes = tx.txExecutionResult;
-          if (execRes !== undefined && execRes !== 0 && execRes !== 1) {
-            record.status = "EXECUTION_FAILURE";
-            record.confirmedAt = Date.now();
-            record.error = `Transaction executed with error code ${execRes}`;
-            record.consensusResult = consensusResult;
-            record.validatorVotes = consensusVotes;
-            await saveTxRecord(record);
-            notify(record);
-            return record;
-          }
-
-          record.status = statusName === "FINALIZED" ? "FINALIZED" : "ACCEPTED";
-          record.confirmedAt = Date.now();
-          record.consensusResult = consensusResult;
-          record.validatorVotes = consensusVotes;
-          await saveTxRecord(record);
-          notify(record);
-
-          // If accepted, keep monitoring for finality if attempts remain
-          if (statusName === "FINALIZED") {
-            return record;
-          }
-        } else if (statusName === "REVERTED" || statusName === "FAILED") {
-          record.status = "EXECUTION_FAILURE";
-          record.confirmedAt = Date.now();
-          record.error = "Transaction reverted on GenLayer Studionet.";
-          record.consensusResult = consensusResult;
-          record.validatorVotes = consensusVotes;
-          await saveTxRecord(record);
-          notify(record);
-          return record;
-        } else {
+        const outcome = parseTransactionOutcome(tx);
+        const rollup = rollupTransaction(outcome);
+        record.protocolStatus = outcome.protocolStatus;
+        record.consensusResult = outcome.consensusResult;
+        record.executionResult = outcome.executionResult;
+        record.executionContradictions = outcome.contradictions;
+        record.validatorVotes = outcome.validatorVotes;
+        if (rollup.action === "pending") {
           record.status = "PENDING_NETWORK";
           notify(record);
+        } else {
+          record.status = rollup.status;
+          record.confirmedAt = Date.now();
+          record.error = rollup.error;
+          await saveTxRecord(record);
+          notify(record);
+          if (rollup.action === "stop") return record;
         }
       }
     } catch (rpcErr) {

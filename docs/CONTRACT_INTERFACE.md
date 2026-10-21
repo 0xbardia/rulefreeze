@@ -10,9 +10,9 @@ Dependency Header: `# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93h
 ### `get_policy() -> str`
 - **Args:** None
 - **Returns:** JSON string containing:
-  - `contract_version`: String (`1.0.0`)
-  - `schema_version`: Int (`1`)
-  - `evaluation_policy_version`: String (`rulefreeze-eval-v1.0`)
+  - `contract_version`: String (`1.0.1`)
+  - `schema_version`: Int (`2`)
+  - `evaluation_policy_version`: String (`rulefreeze-eval-v1.1`)
   - `policy_hash`: SHA-256 hex string
   - `policy_document`: Full policy text
   - `valid_classifications`: List of 4 strings
@@ -106,11 +106,14 @@ def assess_amendment(amendment_id: str) -> str
 - **Behavior:**
   - Loads amendment, base version rules, and immutable scenarios.
   - Replay protection: Returns existing assessment if already evaluated.
-  - Hoists prompt and executes `gl.nondet.exec_prompt`.
+  - Hoists prompt and executes `gl.nondet.exec_prompt(..., response_format="json")`.
+  - The pinned SDK returns a dict for that format. The contract validates a dict directly and JSON-decodes a string once. It does not parse `str(dict)`.
   - Runs `gl.eq_principle.prompt_comparative` equivalence consensus.
   - Deterministically validates schema and verifies that cited excerpts exist verbatim in source text.
-  - Saves `AssessmentRecord` and marks amendment status as `ASSESSED`.
-  - Returns `assessment_id`.
+  - Saves `AssessmentRecord` (`schema_version` 2) with `result_kind` (`SEMANTIC` or `PROCESSING_FAILURE`) and `failure_stage` (`OUTPUT_FORMAT`, `SCHEMA`, `PROVIDER`, `EMPTY`, `TYPE`, `GROUNDING`, or empty).
+  - A processing failure stores an empty `overall_classification`. It is not a semantic `REVIEW_NEEDED`.
+  - Marks amendment status as `ASSESSED` and returns `assessment_id`.
+  - Historical deployment `0xC8a83C62da126891aB8F60e6D5E171480aE91c23` used contract `1.0.0`, schema `1`, and policy `rulefreeze-eval-v1.0`.
 
 ### `decide_amendment(...) -> None`
 ```python
@@ -122,7 +125,8 @@ def decide_amendment(amendment_id: str, decision: str, rationale: str) -> None
   - Verifies amendment's base version is STILL currently active (`STALE_BASE_VERSION`).
   - Verifies amendment status is `ASSESSED`.
   - Validates `decision` in `{"ACCEPTED_CLARIFICATION", "ACKNOWLEDGED_MATERIAL_CHANGE", "PROSPECTIVE_REVISION", "DECLINED"}`.
-  - Enforces minimum rationale length (>= 15 chars).
-  - Invariant: Rejects `ACCEPTED_CLARIFICATION` if assessment is `MATERIAL_CHANGE` or `REVIEW_NEEDED`.
+  - Material and prospective decisions require rationale length >= 15 chars.
+  - Rejects every non-decline when `result_kind` is not `SEMANTIC`, `failure_stage` is a processing or grounding stage, or `grounding_verified` is false (`CANNOT_ACTIVATE_UNVERIFIED_ASSESSMENT`).
+  - Rejects `ACCEPTED_CLARIFICATION` when the classification is `MATERIAL_CHANGE`, `REVIEW_NEEDED`, or `INSUFFICIENT_INFORMATION`.
   - If activating: Creates Version N+1 with proposed text and activates it.
   - If declining: Sets amendment status to `DECLINED`.

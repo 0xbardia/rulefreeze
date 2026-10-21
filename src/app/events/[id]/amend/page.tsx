@@ -6,7 +6,7 @@ import { getPublicConfig } from "@/lib/config";
 import { executeContractWrite, fetchEvent, fetchRuleVersion, getInjectedProvider } from "@/lib/contract-adapter";
 import { mockFetchEvent, mockFetchRuleVersion, mockProposeAmendment } from "@/lib/mock-adapter";
 import { DiffViewer } from "@/components/DiffViewer";
-import { saveAmendmentDraft, getAmendmentDraft, deleteAmendmentDraft } from "@/lib/idb";
+import { saveAmendmentDraft, getAmendmentDraft, deleteAmendmentDraft, recordMatchesContract } from "@/lib/idb";
 import { isDemoEventId, isLiveEventId } from "@/lib/id-routing";
 import { trackTransaction } from "@/lib/tx-controller";
 import { EventRecord, IntendedScope, RuleVersion } from "@/lib/types";
@@ -61,7 +61,7 @@ export default function ProposeAmendmentPage({ params }: { params: Promise<{ id:
 
         // Check if there's a draft in IndexedDB
         const draft = await getAmendmentDraft(`amend_draft_${eventId}`);
-        if (draft) {
+        if (draft && recordMatchesContract(draft, cfg.contractAddress)) {
           if (draft.proposed_rules) setProposedRules(draft.proposed_rules);
           if (draft.explanation) setExplanation(draft.explanation);
           if (draft.intended_scope) setIntendedScope(draft.intended_scope);
@@ -93,6 +93,7 @@ export default function ProposeAmendmentPage({ params }: { params: Promise<{ id:
         explanation,
         intended_scope: intendedScope,
         account: account || "anonymous",
+        contractAddress: contractAddress || undefined,
         updatedAt: Date.now(),
       });
       alert("Amendment draft saved locally in IndexedDB.");

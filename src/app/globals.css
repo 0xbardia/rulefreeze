@@ -87,8 +87,11 @@ button, input, textarea, select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 60px;
+  min-height: 60px;
+  height: auto;
   gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 0;
 }
 
 .rf-brand {
@@ -114,7 +117,8 @@ button, input, textarea, select {
 .rf-nav-links {
   display: flex;
   align-items: center;
-  gap: 20px;
+  flex-wrap: wrap;
+  gap: 8px 16px;
 }
 .rf-nav-link {
   color: var(--text-secondary);
@@ -437,6 +441,7 @@ button, input, textarea, select {
 /* Monospace Helpers */
 .rf-mono {
   font-family: var(--font-mono);
+  overflow-wrap: anywhere;
 }
 
 .rf-hash {

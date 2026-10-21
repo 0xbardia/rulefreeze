@@ -19,18 +19,20 @@ from datetime import datetime, timezone
 # Constants & Enums
 # --------------------------------------------------------------------------------------
 
-CONTRACT_VERSION = "1.0.0"
-SCHEMA_VERSION = 1
-EVALUATION_POLICY_VERSION = "rulefreeze-eval-v1.0"
+CONTRACT_VERSION = "1.0.1"
+SCHEMA_VERSION = 2
+EVALUATION_POLICY_VERSION = "rulefreeze-eval-v1.1"
 
 POLICY_DOCUMENT = (
-    "rulefreeze-policy-v1.0: "
+    "rulefreeze-policy-v1.1: "
     "Classifications: NO_MATERIAL_CHANGE, MATERIAL_CHANGE, REVIEW_NEEDED, INSUFFICIENT_INFORMATION. "
+    "Processing failures are stored separately and are not semantic verdicts. "
     "Dimensions: ELIGIBILITY, SCORING, DEADLINES, DELIVERABLES, OBLIGATIONS, PROCEDURES, DEFINITIONS, OTHER. "
+    "Outcomes: COMPLIANT, NON_COMPLIANT, UNDETERMINED. "
     "Scopes: FUTURE_ONLY, CURRENT_PARTICIPANTS, UNSPECIFIED. "
     "Decisions: ACCEPTED_CLARIFICATION, PROSPECTIVE_REVISION, ACKNOWLEDGED_MATERIAL_CHANGE, DECLINED. "
     "Rules: Text immutable; scenario probes bounded; material changes require explicit organizer acknowledgement; "
-    "stale base amendments cannot activate."
+    "stale base amendments cannot activate; ungrounded or unparsed model output cannot activate."
 )
 POLICY_HASH = hashlib.sha256(POLICY_DOCUMENT.encode("utf-8")).hexdigest()
 
@@ -72,6 +74,11 @@ VALID_DECISIONS = {
     "ACKNOWLEDGED_MATERIAL_CHANGE",
     "DECLINED",
 }
+VALID_OUTCOMES = {"COMPLIANT", "NON_COMPLIANT", "UNDETERMINED"}
+PROCESSING_STAGES = {"OUTPUT_FORMAT", "SCHEMA", "PROVIDER", "EMPTY", "TYPE", "GROUNDING"}
+MAX_REASONING = 1200
+MAX_UNCERTAINTY = 600
+MAX_SCENARIO_EXPLANATION = 600
 
 ADDRESS_PATTERN = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
@@ -142,6 +149,19 @@ def _validate_scenarios(scenarios_raw: list) -> list:
     return cleaned
 
 
+def _processing_failure(stage: str, detail: str) -> dict:
+    return {
+        "result_kind": "PROCESSING_FAILURE",
+        "failure_stage": stage,
+        "overall_classification": "",
+        "changed_dimensions": [],
+        "scenarios": [],
+        "reasoning": str(detail)[:500],
+        "uncertainty": stage,
+        "grounding_verified": False,
+    }
+
+
 def _build_assessment_prompt(
     event_name: str,
     base_rules: str,
@@ -149,6 +169,8 @@ def _build_assessment_prompt(
     explanation: str,
     intended_scope: str,
     scenarios: list,
+    base_version_id: str = "",
+    amendment_id: str = "",
 ) -> str:
     scenarios_text = json.dumps(scenarios, indent=2, ensure_ascii=False)
     prompt = f"""You are the official GenLayer semantic assessment engine for RuleFreeze.
@@ -174,9 +196,11 @@ Overall Classifications (pick exactly one):
 - REVIEW_NEEDED: The amendment introduces ambiguity, contradictions, or untested substantive clauses that cannot be proven harmless.
 - INSUFFICIENT_INFORMATION: Critical facts or rules are missing to determine the effect.
 
-For each participant scenario, evaluate:
-- old_outcome: The expected result under the Old Rules (e.g. ELIGIBLE / INELIGIBLE / REQUIRED / NOT_REQUIRED / COMPLIANT / NON_COMPLIANT / UNDETERMINED).
-- new_outcome: The expected result under the New Rules.
+For each participant scenario, evaluate using only these outcome tokens:
+- COMPLIANT
+- NON_COMPLIANT
+- UNDETERMINED
+old_outcome is the result under the Old Rules. new_outcome is the result under the New Rules.
 - outcome_changed: Boolean (true if old_outcome differs from new_outcome or criteria changed, false otherwise).
 - rule_references: List of verbatim exact quotes from Old or New rules supporting this scenario's verdict.
 - explanation: Concise explanation of why the outcome changed or stayed the same.
@@ -200,121 +224,209 @@ Intended Scope: {intended_scope}
 {scenarios_text}
 === END PARTICIPANT SCENARIOS ===
 
-Produce your verdict strictly as valid JSON matching this schema:
+Registered base version id: {base_version_id}
+Registered amendment id: {amendment_id}
+
+Produce one JSON object and nothing else. Copy base_version_id and amendment_id exactly.
+changed_dimensions is an empty array when the classification is NO_MATERIAL_CHANGE.
+Every registered scenario_id appears exactly once.
+rule_references are exact contiguous quotes from the old or new rule text, at least one per scenario.
 {{
+  "base_version_id": "{base_version_id}",
+  "amendment_id": "{amendment_id}",
   "overall_classification": "NO_MATERIAL_CHANGE | MATERIAL_CHANGE | REVIEW_NEEDED | INSUFFICIENT_INFORMATION",
-  "changed_dimensions": ["ELIGIBILITY", "SCORING", ...],
+  "changed_dimensions": ["ELIGIBILITY", "SCORING", "DEADLINES", "DELIVERABLES", "OBLIGATIONS", "PROCEDURES", "DEFINITIONS", "OTHER"],
   "scenarios": [
     {{
-      "scenario_id": "SC-1",
-      "old_outcome": "...",
-      "new_outcome": "...",
+      "scenario_id": "SC-A",
+      "old_outcome": "COMPLIANT | NON_COMPLIANT | UNDETERMINED",
+      "new_outcome": "COMPLIANT | NON_COMPLIANT | UNDETERMINED",
       "outcome_changed": false,
-      "rule_references": ["exact quote from text"],
+      "rule_references": ["exact quote from the rule text"],
       "explanation": "...",
       "missing_facts": ""
     }}
   ],
   "reasoning": "...",
-  "uncertainty": "..."
+  "uncertainty": ""
 }}
 """
     return prompt[:MAX_PROMPT_CHARS]
 
 
-def _parse_and_verify_decision(raw_output: str, base_rules: str, proposed_rules: str, scenarios: list) -> dict:
-    cleaned = raw_output.strip()
-    if cleaned.startswith("```json"):
-        cleaned = cleaned[7:]
-    elif cleaned.startswith("```"):
-        cleaned = cleaned[3:]
-    if cleaned.endswith("```"):
-        cleaned = cleaned[:-3]
-    cleaned = cleaned.strip()
+def _bounded_text(value, limit: int, label: str, required: bool) -> tuple[str | None, str | None]:
+    if value is None:
+        value = ""
+    if not isinstance(value, str):
+        return None, f"{label} must be a string."
+    text = unicodedata.normalize("NFC", value)
+    text = re.sub(r"[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]", "", text)
+    text = re.sub(r"[\u0000-\u0008\u000b\u000c\u000e-\u001f]", "", text).strip()
+    if required and not text:
+        return None, f"{label} is required."
+    if len(text) > limit:
+        return None, f"{label} exceeds {limit} characters."
+    return text, None
 
+
+def _decode_model_output(raw_output):
+    """Return (object, failure). Decode JSON text once. Never parse str(dict)."""
+    if raw_output is None:
+        return None, _processing_failure("EMPTY", "Model output was empty.")
+    if isinstance(raw_output, dict):
+        if "overall_classification" not in raw_output and (
+            "error" in raw_output or set(raw_output.keys()) <= {"error", "message", "status", "code"}
+        ):
+            return None, _processing_failure("PROVIDER", "Provider error envelope was returned instead of an assessment.")
+        return raw_output, None
+    if not isinstance(raw_output, str):
+        return None, _processing_failure("TYPE", f"Model return type was {type(raw_output).__name__}, expected object or JSON text.")
+
+    text = raw_output.strip()
+    if text.startswith("```json"):
+        text = text[7:]
+    elif text.startswith("```"):
+        text = text[3:]
+    if text.endswith("```"):
+        text = text[:-3]
+    text = text.strip()
+    if not text:
+        return None, _processing_failure("EMPTY", "Model output was empty.")
     try:
-        data = json.loads(cleaned)
+        decoded = json.loads(text)
     except Exception as exc:
-        return {
-            "overall_classification": "REVIEW_NEEDED",
-            "changed_dimensions": ["OTHER"],
-            "scenarios": [],
-            "reasoning": f"Model output was not valid JSON: {str(exc)[:100]}",
-            "uncertainty": "MALFORMED_MODEL_OUTPUT",
-            "grounding_verified": False,
-        }
+        return None, _processing_failure("OUTPUT_FORMAT", f"Model output was not valid JSON: {exc}")
+    if isinstance(decoded, str):
+        return None, _processing_failure("TYPE", "JSON text decoded to another string. Refusing a second decode.")
+    if not isinstance(decoded, dict):
+        return None, _processing_failure("TYPE", f"JSON value type was {type(decoded).__name__}, expected object.")
+    if "overall_classification" not in decoded and (
+        "error" in decoded or set(decoded.keys()) <= {"error", "message", "status", "code"}
+    ):
+        return None, _processing_failure("PROVIDER", "Decoded object is a provider error envelope.")
+    return decoded, None
 
-    raw_class = str(data.get("overall_classification", "")).strip().upper()
-    if raw_class not in VALID_CLASSIFICATIONS:
+
+def _parse_and_verify_decision(
+    raw_output,
+    base_rules: str,
+    proposed_rules: str,
+    scenarios: list,
+    base_version_id: str = "",
+    amendment_id: str = "",
+) -> dict:
+    data, failure = _decode_model_output(raw_output)
+    if failure is not None:
+        return failure
+
+    if base_version_id and str(data.get("base_version_id", "")) != base_version_id:
+        return _processing_failure("SCHEMA", "base_version_id does not match the registered version.")
+    if amendment_id and str(data.get("amendment_id", "")) != amendment_id:
+        return _processing_failure("SCHEMA", "amendment_id does not match the registered amendment.")
+
+    raw_class = data.get("overall_classification")
+    if not isinstance(raw_class, str) or raw_class.strip().upper() not in VALID_CLASSIFICATIONS:
+        return _processing_failure("SCHEMA", "overall_classification is missing or not an allowed value.")
+    raw_class = raw_class.strip().upper()
+
+    raw_dims = data.get("changed_dimensions")
+    if not isinstance(raw_dims, list):
+        return _processing_failure("SCHEMA", "changed_dimensions must be an array.")
+    valid_dims = []
+    for dim in raw_dims:
+        if not isinstance(dim, str) or dim.strip().upper() not in VALID_DIMENSIONS:
+            return _processing_failure("SCHEMA", "changed_dimensions contains a value outside the allowed set.")
+        cleaned_dim = dim.strip().upper()
+        if cleaned_dim not in valid_dims:
+            valid_dims.append(cleaned_dim)
+    if raw_class == "NO_MATERIAL_CHANGE" and valid_dims:
+        raw_class = "REVIEW_NEEDED"
+    if raw_class == "MATERIAL_CHANGE" and not valid_dims:
         raw_class = "REVIEW_NEEDED"
 
-    raw_dims = data.get("changed_dimensions", [])
-    valid_dims = []
-    if isinstance(raw_dims, list):
-        for d in raw_dims:
-            d_clean = str(d).strip().upper()
-            if d_clean in VALID_DIMENSIONS and d_clean not in valid_dims:
-                valid_dims.append(d_clean)
-    if not valid_dims and raw_class in ("MATERIAL_CHANGE", "REVIEW_NEEDED"):
-        valid_dims = ["OTHER"]
+    reasoning, reason_err = _bounded_text(data.get("reasoning"), MAX_REASONING, "reasoning", required=True)
+    if reason_err:
+        return _processing_failure("SCHEMA", reason_err)
+    if "uncertainty" not in data:
+        return _processing_failure("SCHEMA", "uncertainty is required.")
+    uncertainty, uncertainty_err = _bounded_text(data.get("uncertainty"), MAX_UNCERTAINTY, "uncertainty", required=False)
+    if uncertainty_err:
+        return _processing_failure("SCHEMA", uncertainty_err)
 
-    raw_scenarios = data.get("scenarios", [])
+    raw_scenarios = data.get("scenarios")
+    if not isinstance(raw_scenarios, list):
+        return _processing_failure("SCHEMA", "scenarios must be an array.")
+    known_ids = [sc["id"] for sc in scenarios]
+    seen = []
     sc_results = []
     grounding_ok = True
-    quotes_checked = 0
-
-    known_sc_ids = {sc["id"]: sc for sc in scenarios}
-
-    if isinstance(raw_scenarios, list):
-        for item in raw_scenarios:
-            if not isinstance(item, dict):
-                continue
-            sc_id = str(item.get("scenario_id", "")).strip()
-            if sc_id not in known_sc_ids:
-                continue
-
-            old_out = _clean_str(item.get("old_outcome", "UNDETERMINED"), 100, "old_outcome", required=False)
-            new_out = _clean_str(item.get("new_outcome", "UNDETERMINED"), 100, "new_outcome", required=False)
-            changed = bool(item.get("outcome_changed", old_out != new_out))
-
+    for item in raw_scenarios:
+        if not isinstance(item, dict):
+            return _processing_failure("SCHEMA", "Each scenario result must be an object.")
+        sc_id = item.get("scenario_id")
+        if not isinstance(sc_id, str) or sc_id not in known_ids:
+            return _processing_failure("SCHEMA", "scenario_id is missing or not a registered scenario.")
+        if sc_id in seen:
+            return _processing_failure("SCHEMA", f"Duplicate scenario result for {sc_id}.")
+        seen.append(sc_id)
+        old_out = item.get("old_outcome")
+        new_out = item.get("new_outcome")
+        if old_out not in VALID_OUTCOMES or new_out not in VALID_OUTCOMES:
+            return _processing_failure("SCHEMA", "Scenario outcomes must be COMPLIANT, NON_COMPLIANT, or UNDETERMINED.")
+        if not isinstance(item.get("outcome_changed"), bool):
+            return _processing_failure("SCHEMA", "outcome_changed must be a boolean.")
+        explanation, explanation_err = _bounded_text(
+            item.get("explanation"), MAX_SCENARIO_EXPLANATION, "explanation", required=True
+        )
+        if explanation_err:
+            return _processing_failure("SCHEMA", explanation_err)
+        missing, missing_err = _bounded_text(item.get("missing_facts", ""), 300, "missing_facts", required=False)
+        if missing_err:
+            return _processing_failure("SCHEMA", missing_err)
+        raw_refs = item.get("rule_references")
+        if not isinstance(raw_refs, list) or len(raw_refs) == 0:
+            grounding_ok = False
             refs = []
-            raw_refs = item.get("rule_references", [])
-            if isinstance(raw_refs, list):
-                for ref in raw_refs:
-                    ref_str = _clean_str(ref, 300, "rule_reference", required=False)
-                    if not ref_str:
-                        continue
-                    refs.append(ref_str)
-                    quotes_checked += 1
-                    # Verify quote exists in base_rules or proposed_rules
-                    if ref_str not in base_rules and ref_str not in proposed_rules:
-                        # Allow fuzzy lowercase containment check
-                        if ref_str.lower() not in base_rules.lower() and ref_str.lower() not in proposed_rules.lower():
-                            grounding_ok = False
+        else:
+            refs = []
+            for ref in raw_refs:
+                ref_text, ref_err = _bounded_text(ref, 300, "rule_reference", required=True)
+                if ref_err:
+                    return _processing_failure("SCHEMA", ref_err)
+                refs.append(ref_text)
+                if ref_text not in base_rules and ref_text not in proposed_rules:
+                    grounding_ok = False
+        sc_results.append({
+            "scenario_id": sc_id,
+            "old_outcome": old_out,
+            "new_outcome": new_out,
+            "outcome_changed": item["outcome_changed"],
+            "rule_references": refs,
+            "explanation": explanation,
+            "missing_facts": missing,
+        })
+    if seen != known_ids and set(seen) != set(known_ids):
+        return _processing_failure("SCHEMA", "Scenario results do not cover the registered scenario ids.")
+    ordered = []
+    by_id = {item["scenario_id"]: item for item in sc_results}
+    for sc_id in known_ids:
+        if sc_id not in by_id:
+            return _processing_failure("SCHEMA", "Scenario results do not cover the registered scenario ids.")
+        ordered.append(by_id[sc_id])
 
-            sc_results.append({
-                "scenario_id": sc_id,
-                "old_outcome": old_out,
-                "new_outcome": new_out,
-                "outcome_changed": changed,
-                "rule_references": refs,
-                "explanation": _clean_str(item.get("explanation", ""), 600, "explanation", required=False),
-                "missing_facts": _clean_str(item.get("missing_facts", ""), 300, "missing_facts", required=False),
-            })
-
-    # If quotes were provided but failed grounding, downgrade NO_MATERIAL_CHANGE to REVIEW_NEEDED
-    reasoning = _clean_str(data.get("reasoning", ""), 1200, "reasoning", required=False)
-    uncertainty = _clean_str(data.get("uncertainty", ""), 600, "uncertainty", required=False)
-
-    if quotes_checked > 0 and not grounding_ok:
+    failure_stage = ""
+    if not grounding_ok:
+        failure_stage = "GROUNDING"
         if raw_class == "NO_MATERIAL_CHANGE":
             raw_class = "REVIEW_NEEDED"
-            uncertainty = (uncertainty + " Grounding notice: cited quotation was not found verbatim in rule text.").strip()
+            uncertainty = (uncertainty + " Cited quotation was not found verbatim in the rule text.").strip()
 
     return {
+        "result_kind": "SEMANTIC",
+        "failure_stage": failure_stage,
         "overall_classification": raw_class,
         "changed_dimensions": valid_dims,
-        "scenarios": sc_results,
+        "scenarios": ordered,
         "reasoning": reasoning,
         "uncertainty": uncertainty,
         "grounding_verified": grounding_ok,
@@ -644,11 +756,13 @@ class RuleFreeze(gl.Contract):
             explanation=amend["explanation"],
             intended_scope=amend["intended_scope"],
             scenarios=scenarios,
+            base_version_id=amend["base_version_id"],
+            amendment_id=amendment_id,
         )
 
-        def run_eval() -> str:
-            raw = gl.nondet.exec_prompt(prompt, response_format="json")
-            return str(raw)[:MAX_STORED_PACKET]
+        def run_eval():
+            # response_format="json" returns a dict in the pinned SDK. Do not str() it.
+            return gl.nondet.exec_prompt(prompt, response_format="json")
 
         decision_raw = gl.eq_principle.prompt_comparative(
             run_eval,
@@ -668,6 +782,8 @@ class RuleFreeze(gl.Contract):
             base_rules=base_ver["rule_text"],
             proposed_rules=amend["proposed_rules"],
             scenarios=scenarios,
+            base_version_id=amend["base_version_id"],
+            amendment_id=amendment_id,
         )
 
         next_as_idx = int(self.assessment_seq) + 1
@@ -683,6 +799,8 @@ class RuleFreeze(gl.Contract):
             "proposed_hash": amend["proposed_hash"],
             "schema_version": SCHEMA_VERSION,
             "policy_version": EVALUATION_POLICY_VERSION,
+            "result_kind": parsed["result_kind"],
+            "failure_stage": parsed["failure_stage"],
             "overall_classification": parsed["overall_classification"],
             "changed_dimensions": parsed["changed_dimensions"],
             "scenarios": parsed["scenarios"],
@@ -731,7 +849,9 @@ class RuleFreeze(gl.Contract):
 
         latest_assess_id = amend["assessment_ids"][-1]
         assessment = self._load_json(self.assessments, latest_assess_id, "ASSESSMENT")
-        overall_class = assessment["overall_classification"]
+        overall_class = assessment.get("overall_classification", "")
+        result_kind = assessment.get("result_kind") or "SEMANTIC"
+        failure_stage = assessment.get("failure_stage") or ""
 
         c_decision = str(decision or "").strip().upper()
         if c_decision not in VALID_DECISIONS:
@@ -739,8 +859,15 @@ class RuleFreeze(gl.Contract):
 
         c_rationale = _clean_str(rationale, MAX_RATIONALE, "Decision rationale", required=True)
 
+        if c_decision != "DECLINED":
+            if result_kind != "SEMANTIC" or failure_stage in PROCESSING_STAGES or assessment.get("grounding_verified") is False:
+                raise gl.vm.UserError(
+                    "CANNOT_ACTIVATE_UNVERIFIED_ASSESSMENT: Only a grounded semantic assessment can activate rules. "
+                    f"result_kind={result_kind} failure_stage={failure_stage or 'none'}."
+                )
+
         if c_decision == "ACCEPTED_CLARIFICATION":
-            if overall_class in ("MATERIAL_CHANGE", "REVIEW_NEEDED"):
+            if overall_class in ("MATERIAL_CHANGE", "REVIEW_NEEDED", "INSUFFICIENT_INFORMATION"):
                 raise gl.vm.UserError(
                     f"CANNOT_ACCEPT_AS_CLARIFICATION: Assessment verdict is {overall_class}. "
                     "You cannot silently accept this as a harmless clarification. "

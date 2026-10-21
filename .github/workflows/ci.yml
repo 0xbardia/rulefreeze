@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  validate:
+    name: Lint, Test & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Run Domain Constraints Linter
+        run: npm run lint
+
+      - name: Run Node and IndexedDB unit tests
+        run: npm run test:ts
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Python test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-test.txt
+
+      - name: Run Contract Direct VM tests
+        run: npm run test:contract
+
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          PUBLIC_CONTRACT_ADDRESS: "0xeAaF5090d59d5fBf1D32a07A30D866E3469CF826"
+          PUBLIC_GENLAYER_RPC_URL: "https://studio.genlayer.com/api"
+          PUBLIC_GENLAYER_CHAIN_ID: "61999"

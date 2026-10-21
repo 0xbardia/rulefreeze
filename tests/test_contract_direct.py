@@ -27,8 +27,9 @@ def test_deploy_and_policy(direct_deploy):
     c = direct_deploy(CONTRACT)
     pol_raw = c.get_policy()
     policy = json.loads(pol_raw)
-    assert policy["contract_version"] == "1.0.0"
-    assert policy["schema_version"] == 1
+    assert policy["contract_version"] == "1.0.1"
+    assert policy["schema_version"] == 2
+    assert policy["evaluation_policy_version"] == "rulefreeze-eval-v1.1"
     assert "NO_MATERIAL_CHANGE" in policy["valid_classifications"]
     assert "MATERIAL_CHANGE" in policy["valid_classifications"]
     assert "ELIGIBILITY" in policy["valid_dimensions"]
@@ -223,3 +224,61 @@ def test_cannot_accept_material_change_as_clarification(direct_deploy, direct_vm
     amend_after = json.loads(c.get_amendment(amend_id))
     assert amend_after["status"] == "ACTIVATED"
     assert amend_after["decision"]["type"] == "ACKNOWLEDGED_MATERIAL_CHANGE"
+
+
+def test_assess_replay_returns_existing_id(direct_deploy, direct_vm):
+    c = direct_deploy(CONTRACT)
+    c.register_event("Event Replay", "", "", "", "", "Rules: One entry.", SAMPLE_SCENARIOS)
+    amend_id = c.propose_amendment("ev-1", "ver-1", "Rules: One entry only.", "Typo probe", "FUTURE_ONLY")
+    amend = json.loads(c.get_amendment(amend_id))
+    amend["status"] = "ASSESSED"
+    amend["assessment_ids"] = ["assess-9"]
+    c.amendments[amend_id] = json.dumps(amend)
+
+    again = c.assess_amendment(amend_id)
+    assert again == "assess-9"
+    stored = json.loads(c.get_amendment(amend_id))
+    assert stored["assessment_ids"] == ["assess-9"]
+
+
+def test_decide_rejects_stale_base(direct_deploy, direct_vm):
+    c = direct_deploy(CONTRACT)
+    c.register_event("Event Stale", "", "", "", "", "Rules: Baseline.", SAMPLE_SCENARIOS)
+    first = c.propose_amendment("ev-1", "ver-1", "Rules: Baseline clarified.", "Clarification", "FUTURE_ONLY")
+    second = c.propose_amendment("ev-1", "ver-1", "Rules: Baseline rewritten.", "Rewrite", "FUTURE_ONLY")
+
+    def assess(amend_id, assess_id, classification):
+        amend = json.loads(c.get_amendment(amend_id))
+        c.assessments[assess_id] = json.dumps({
+            "id": assess_id,
+            "amendment_id": amend_id,
+            "event_id": "ev-1",
+            "base_version_id": "ver-1",
+            "base_hash": amend["base_hash"],
+            "proposed_hash": amend["proposed_hash"],
+            "schema_version": 1,
+            "policy_version": "rulefreeze-eval-v1.0",
+            "overall_classification": classification,
+            "changed_dimensions": [],
+            "scenarios": [],
+            "reasoning": "Fixture assessment.",
+            "uncertainty": "",
+            "grounding_verified": True,
+            "assessed_at": 1700000000,
+        })
+        amend["status"] = "ASSESSED"
+        amend["assessment_ids"] = [assess_id]
+        c.amendments[amend_id] = json.dumps(amend)
+
+    assess(first, "assess-1", "NO_MATERIAL_CHANGE")
+    assess(second, "assess-2", "MATERIAL_CHANGE")
+    c.decide_amendment(first, "ACCEPTED_CLARIFICATION", "Activate the first clarification.")
+
+    with pytest.raises(Exception) as excinfo:
+        c.decide_amendment(second, "ACKNOWLEDGED_MATERIAL_CHANGE", "This base has been superseded.")
+    assert "STALE_BASE_VERSION" in str(excinfo.value)
+    ev = json.loads(c.get_event("ev-1"))
+    assert ev["active_version_id"] == "ver-2"
+    second_after = json.loads(c.get_amendment(second))
+    assert second_after["status"] == "ASSESSED"
+    assert second_after["decision"] is None

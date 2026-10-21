@@ -1,7 +1,32 @@
+# Dependencies
 node_modules/
+
+# Next.js Build Output & Cache
 .next/
-.pytest_cache/
-__pycache__/
 *.tsbuildinfo
+
+# Python Cache & gltest artifacts
+__pycache__/
+.pytest_cache/
+/tmp/rulefreeze-gltest-artifacts/
+
+# Local Environment & Secrets
 .env
 .env.local
+.env.*.local
+*.pem
+*.key
+*.vault
+.rulefreeze-qa/
+.secrets/
+
+# Scripts & Evidence exclusions
+scripts/verify-wallet-domain.mjs
+artifacts/
+evidence/
+screenshots/domain_wallet_ev1.png
+
+# OS / Editor junk
+.DS_Store
+Thumbs.db
+*.log

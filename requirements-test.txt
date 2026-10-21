@@ -1,0 +1,5 @@
+# Intended abstract compatibility ranges for test runners
+pytest>=9.1.1
+genlayer-py>=0.16.3
+genlayer-test>=0.29.2
+-c requirements-lock.txt

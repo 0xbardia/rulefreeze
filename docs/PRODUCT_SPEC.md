@@ -66,9 +66,11 @@ RuleFreeze provides an authoritative public registry and semantic amendment revi
 - `amendment_id`: Reference to evaluated amendment.
 - `base_version_id`: Base version ID.
 - `base_hash` / `proposed_hash`: Verified content hashes.
-- `schema_version`: Schema version (1).
-- `policy_version`: Evaluation policy identifier (`rulefreeze-eval-v1.0`).
-- `overall_classification`: `NO_MATERIAL_CHANGE`, `MATERIAL_CHANGE`, `REVIEW_NEEDED`, or `INSUFFICIENT_INFORMATION`.
+- `schema_version`: Schema version (`2` on contract `1.0.1`).
+- `policy_version`: Evaluation policy identifier (`rulefreeze-eval-v1.1`).
+- `result_kind`: `SEMANTIC` or `PROCESSING_FAILURE`.
+- `failure_stage`: Empty on a grounded semantic result, or `OUTPUT_FORMAT`, `SCHEMA`, `PROVIDER`, `EMPTY`, `TYPE`, or `GROUNDING`.
+- `overall_classification`: `NO_MATERIAL_CHANGE`, `MATERIAL_CHANGE`, `REVIEW_NEEDED`, or `INSUFFICIENT_INFORMATION`. Empty when `result_kind` is `PROCESSING_FAILURE`. A processing failure is not a semantic `REVIEW_NEEDED`.
 - `changed_dimensions`: Array of affected dimensions.
 - `scenarios`: Per-scenario evaluation:
   - `old_outcome`: Outcome under old rules.

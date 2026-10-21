@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-10-20T14:20:00Z",
+  "record_role": "closeout-1.0.1",
+  "appVersion": "1.0.0",
+  "contractVersion": "1.0.1",
+  "schemaVersion": 2,
+  "evaluationPolicyVersion": "rulefreeze-eval-v1.1",
+  "source_sha256": "f3b8b9ef09dd21755435e2bc55b5d0db84af5b93348c6655ea7ee9d520cc8177",
+  "build_id": "39mU46aH3Pd5y3-kDwIbr",
+  "process": {
+    "pm2_id": 17,
+    "name": "rulefreeze-web",
+    "pid": 958330,
+    "port": 48820
+  },
+  "contract": "0xeAaF5090d59d5fBf1D32a07A30D866E3469CF826",
+  "event": "ev-1",
+  "active_version": "ver-3",
+  "amendments": {
+    "amend-1": "ACCEPTED_CLARIFICATION",
+    "amend-2": "PENDING_ASSESSMENT_STALE_BASE_UI",
+    "amend-3": "ACKNOWLEDGED_MATERIAL_CHANGE",
+    "amend-4": "DECLINED"
+  },
+  "live_on_chain_stale_base_rejection": "NOT_RUN",
+  "historical_1_0_0_semantic_result": "FAIL_MALFORMED_MODEL_OUTPUT",
+  "new_writes_during_closeout": 0,
+  "document": "docs/QA_CLOSEOUT.md"
+}
