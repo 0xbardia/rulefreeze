@@ -1,0 +1,91 @@
+{
+  "submitted": true,
+  "confirmed": true,
+  "inspection": {
+    "decodedOk": true,
+    "problems": [],
+    "missing": [],
+    "from": "0x40D7ECA78017697c1916819F48850A7f739b6beb",
+    "to": "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575",
+    "value": "0",
+    "chainId": "0xf22f",
+    "method": "addTransaction",
+    "recipient": "0xC8a83C62da126891aB8F60e6D5E171480aE91c23",
+    "uiRoute": "/notification.html",
+    "feeText": "",
+    "nonzeroFee": false,
+    "spendPermission": false,
+    "uiConflict": false
+  },
+  "hash": "0xae9f63ec15b18b7029fb7fca527abbd2d67d550235a8362ef90773e85db2dd7e",
+  "tx": {
+    "statusName": "FINALIZED",
+    "status": 7,
+    "txExecutionResult": null,
+    "result": 6,
+    "votes": null
+  },
+  "count": 1,
+  "eventId": "ev-1",
+  "readback": {
+    "id": "ev-1",
+    "organizer": "0x40d7eca78017697c1916819f48850a7f739b6beb",
+    "name": "RuleFreeze Live QA — run-20261019",
+    "description": "Synthetic QA verification on GenLayer Studionet with live contract 0xC8a83C62da126891aB8F60e6D5E171480aE91c23",
+    "event_url": "https://rulefreeze.bydx.fun/qa",
+    "declared_start": "2026-11-01T00:00:00Z",
+    "declared_deadline": "2026-11-15T23:59:59Z",
+    "active_version_id": "ver-1",
+    "rule_text": "1. Eligibility: One entry per person.\n2. Deliverables: A public source repository is required. A live hosted frontend is optional.\n3. Deadlines: Final submissions must be submitted no later than 2026-11-15 at 23:59:59 UTC.\n4. Scoring: Functionality accounts for 70% of scoring. Presentation accounts for 30%.",
+    "scenarios": [
+      {
+        "dimension": "DELIVERABLES",
+        "id": "SC-A",
+        "question": "Are required deliverables satisfied?",
+        "situation": "Participant submits public source repository with no hosted frontend URL.",
+        "title": "Public repository, no hosted frontend"
+      },
+      {
+        "dimension": "DELIVERABLES",
+        "id": "SC-B",
+        "question": "Are required deliverables satisfied?",
+        "situation": "Participant submits public source repository with live hosted frontend URL.",
+        "title": "Public repository and hosted frontend"
+      },
+      {
+        "dimension": "ELIGIBILITY",
+        "id": "SC-C",
+        "question": "Is this person's second entry allowed?",
+        "situation": "One person submits one entry through wallet A and a second entry through wallet B.",
+        "title": "One person submitting two entries via different wallets"
+      }
+    ]
+  },
+  "refresh": {
+    "showsName": true,
+    "showsId": false,
+    "demo": "false",
+    "listHref": "/events/ev-1",
+    "detailShowsId": true,
+    "detailNote": "List card text omits the event id. Detail page renders it as EV-1 and shows organizer, rules, and SC-A/SC-B/SC-C."
+  },
+  "reconciliation": {
+    "reconciledAt": "2026-10-19T23:19:28Z",
+    "protocolStatus": "FINALIZED",
+    "protocolStatusCode": 7,
+    "gen_getTransactionStatus": "FINALIZED",
+    "consensusResult": "MAJORITY_AGREE",
+    "consensusResultCode": 6,
+    "votes": "3 AGREE, 2 IDLE",
+    "executionResult": "SUCCESS",
+    "executionReturn": "ev-1",
+    "studioTxExecutionResultField": null,
+    "ethReceiptStatus": "0x1",
+    "finality": "FINALIZED",
+    "appealed": false,
+    "postQuorumValidatorReceipt": "One non-leader receipt is ERROR / CONSENSUS_VALIDATOR_QUORUM_REACHED after quorum. It is not the transaction execution result.",
+    "get_event_count": 1,
+    "eventId": "ev-1",
+    "activeVersionId": "ver-1"
+  }
+}

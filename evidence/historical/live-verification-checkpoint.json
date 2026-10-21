@@ -1,0 +1,94 @@
+{
+  "timestamp": "2026-10-20T00:15:09Z",
+  "app": "RuleFreeze",
+  "version": "1.0.0",
+  "run": "run-20261019-live-qa",
+  "contract": {
+    "source_file": "/root/X/contracts/main.py",
+    "sha256": "42cc031d0ba76e704e0b67c2df366139104e860fc41c71d79df082738d0e0396",
+    "constructor_args": [],
+    "deployed_address": "0xC8a83C62da126891aB8F60e6D5E171480aE91c23",
+    "deployment_tx": "0x6483f0dbd636be740bcbb9e64ee0780bbd4dad5078f4597f7e3e8ba5aa9f1bb7",
+    "deployment_protocol_status": "FINALIZED",
+    "deployment_receipt_status": "0x1",
+    "deployment_finality": "FINALIZED_SUCCESS",
+    "execution_result": "SUCCESS",
+    "evidence_file": "artifacts/deployment-evidence.json",
+    "evidence_file_present": false
+  },
+  "network": {
+    "name": "GenLayer Studionet",
+    "chainId": 61999,
+    "chainIdHex": "0xf22f",
+    "rpcUrl": "https://studio.genlayer.com/api",
+    "consensus_contract": "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575",
+    "verified": true
+  },
+  "process": {
+    "pm2_id": 17,
+    "name": "rulefreeze-web",
+    "port": 48820,
+    "status": "online",
+    "build": "next build 2026-10-20, health 200 after restart"
+  },
+  "milestones": {
+    "local_and_direct_vm": "PASS_LOCAL",
+    "deployment": "FINALIZED_SUCCESS",
+    "rpc_and_contract_reads": "LIVE_RPC_AND_CONTRACT_READS_VERIFIED",
+    "application_live_writes": "SEVEN_CAMPAIGN_WRITES_FINALIZED",
+    "live_semantic_assessment": "FAIL_MALFORMED_MODEL_OUTPUT",
+    "real_wallet_e2e": "QA_WALLET_ONLY",
+    "personal_wallet": "NOT_RUN",
+    "vercel": "NOT_RUN",
+    "overall_project_acceptance": "NOT_ACCEPTED_SEMANTIC_LABELS_FAILED"
+  },
+  "registration": {
+    "tx": "0xae9f63ec15b18b7029fb7fca527abbd2d67d550235a8362ef90773e85db2dd7e",
+    "event_id": "ev-1",
+    "active_version_id": "ver-1",
+    "protocol_status": "FINALIZED",
+    "consensus_result": "MAJORITY_AGREE",
+    "execution_result": "SUCCESS",
+    "resubmitted": false
+  },
+  "campaign": {
+    "ledger": "docs/live-qa-campaign.json",
+    "submitted_count": 7,
+    "submitted_budget": 15,
+    "proposal_count": 3,
+    "proposal_budget": 4,
+    "active_version_id": "ver-1",
+    "transactions": [
+      {"name": "nonmaterial-propose", "hash": "0x7ede4f445fd22a913fbd5e8e50336783b6c00ef19e61cc350f6fe22676ef72be", "record": "amend-1"},
+      {"name": "nonmaterial-assess", "hash": "0x2a9752aeb6ba58c8713439bafe0fb343ad173277007175d980745a139531985a", "record": "assess-1"},
+      {"name": "material-propose", "hash": "0xe55551c8e6678b2ca13e67bcf6c154bf4637a844f1411ad76386727f7970453c", "record": "amend-2"},
+      {"name": "material-assess", "hash": "0xbaa1f6238a4f39f929f274d0ac9336ed37400f628fb77851d0136605fe00f67a", "record": "assess-2"},
+      {"name": "injection-propose", "hash": "0xde9fc6128c9a4b085db249a8d12cd49ea35c8ab67f3723637249539aa742437b", "record": "amend-3"},
+      {"name": "injection-assess", "hash": "0x017b0ee5faddd35e6b26563e7991b6940376fa0925da41ed30e16fa98b00ec03", "record": "assess-3"},
+      {"name": "injection-decline", "hash": "0x3c83636118b5b3934549ffbd8a95ea1e10effb2532b9ee5cd6df73aea98e61b1", "record": "DECLINED"}
+    ],
+    "fee_display": "Network fee label shown, no numeric amount",
+    "value": "0",
+    "amendments": {
+      "amend-1": "ASSESSED",
+      "amend-2": "ASSESSED",
+      "amend-3": "DECLINED"
+    }
+  },
+  "tests": {
+    "pytest": "20 passed on 2026-10-20",
+    "typescript": "26 passed on 2026-10-20",
+    "lint": "NOT_RUN",
+    "db_migration_suite": "NOT_RUN",
+    "live_stale_banner": "NOT_RUN"
+  },
+  "qa_operator": {
+    "role": "Disposable RuleFreeze QA operator",
+    "address": "0x40d7eca78017697c1916819f48850a7f739b6beb",
+    "extension": "MetaMask/v13.53.0",
+    "chainId": "0xf22f",
+    "personal_wallet": false
+  },
+  "blocker": null,
+  "next_required_action": "NONE_IN_SCOPE"
+}

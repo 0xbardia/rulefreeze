@@ -23,7 +23,13 @@ __pycache__/
 # Scripts & Evidence exclusions
 scripts/verify-wallet-domain.mjs
 artifacts/
-evidence/
+evidence/closeout-browser/
+evidence/deploy-1.0.1-contract-code.py
+evidence/deploy-1.0.1-reconciliation.json
+evidence/deployment-mapping.json
+evidence/live-20261020*
+evidence/pre-deploy-gate.json
+evidence/reconstructed/
 screenshots/domain_wallet_ev1.png
 
 # OS / Editor junk
