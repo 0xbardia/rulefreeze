@@ -41,7 +41,7 @@ RuleFreeze strictly differentiates between application version and smart contrac
 
 | Domain | Version | Authority | Description |
 |---|---|---|---|
-| Application Version | `1.0.0` | `package.json` / `/api/health` | Next.js user interface, API routes, and client adapters |
+| Application Version | `1.1.0` | `package.json` / `/api/health` | Next.js user interface, API routes, and client adapters |
 | Contract Version | `1.0.1` | `contracts/main.py` / `get_policy()` | Intelligent contract deployed on GenLayer Studionet |
 | Schema Version | `2` | Deployed contract | Internal serialization structure for event records |
 | Evaluation Policy | `rulefreeze-eval-v1.1` | Deployed contract | Canonical validator evaluation prompts and rules |

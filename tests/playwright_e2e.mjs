@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-const BASE_URL = "http://127.0.0.1:48820";
+const BASE_URL = process.env.BASE_URL || "http://127.0.0.1:48820";
 const SCREENSHOT_DIR = path.resolve("screenshots");
 
 if (!fs.existsSync(SCREENSHOT_DIR)) {

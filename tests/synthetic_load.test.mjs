@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 
-const BASE_URL = "http://127.0.0.1:48820";
+const BASE_URL = process.env.BASE_URL || "http://127.0.0.1:48820";
 
 test("Load synthetic QA example button on /events/new loads Section 8 baseline", async (t) => {
   // If local dev/staging server is not running on BASE_URL, skip browser UI automation

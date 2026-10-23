@@ -111,20 +111,52 @@ export default function DiagnosticsPage() {
   };
 
   return (
-    <div style={{ maxWidth: "900px", margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+    <div style={{ maxWidth: "920px", margin: "0 auto" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          marginBottom: "28px",
+          borderBottom: "1px solid var(--rf-border-subtle)",
+          paddingBottom: "20px",
+          flexWrap: "wrap",
+          gap: "14px",
+        }}
+      >
         <div>
-          <h1 style={{ fontSize: "1.8rem", fontWeight: 700 }}>System Diagnostics & Setup</h1>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
-            Verify contract configuration, network connectivity, and browser storage state.
+          <span
+            style={{
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color: "var(--rf-ink-muted)",
+              display: "block",
+              marginBottom: "4px",
+            }}
+          >
+            Runtime Environment & Network Verification
+          </span>
+          <h1 style={{ fontSize: "2rem", fontWeight: 800, letterSpacing: "-0.025em" }}>
+            System Diagnostics & Setup
+          </h1>
+          <p style={{ color: "var(--rf-ink-secondary)", fontSize: "0.95rem", marginTop: "4px" }}>
+            Inspect contract status, RPC connectivity, browser wallet configuration, and local storage state.
           </p>
         </div>
-        <button type="button" onClick={refresh} className="rf-btn rf-btn-secondary rf-btn-sm">
-          Refresh Checks
+
+        <button
+          type="button"
+          onClick={refresh}
+          className="rf-btn rf-btn-secondary rf-btn-sm"
+          disabled={loading}
+        >
+          {loading ? "Probing..." : "↻ Refresh Diagnostics"}
         </button>
       </div>
 
-      {/* Contract Configuration Status Card */}
+      {/* 1. Contract Configuration Status Card */}
       <div className="rf-card">
         <div className="rf-card-header">
           <div>
@@ -134,64 +166,123 @@ export default function DiagnosticsPage() {
             </p>
           </div>
           <span className={`rf-badge ${config?.isConfigured ? "rf-badge-safe" : "rf-badge-warning"}`}>
-            {config?.isConfigured ? "CONFIGURED (LIVE)" : "SETUP MODE (UNCONFIGURED)"}
+            {config?.isConfigured ? "CONFIGURED (LIVE ON-CHAIN)" : "SETUP MODE (UNCONFIGURED)"}
           </span>
         </div>
 
-        <div style={{ display: "grid", gap: "10px", fontSize: "0.88rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "4px 12px", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "6px" }}>
-            <span style={{ color: "var(--text-muted)" }}>PUBLIC_CONTRACT_ADDRESS:</span>
-            <span className="rf-mono" style={{ color: config?.contractAddress ? "var(--color-safe)" : "var(--color-warning)" }}>
+        <div style={{ display: "grid", gap: "12px", fontSize: "0.88rem" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "4px 12px",
+              borderBottom: "1px solid var(--rf-border-subtle)",
+              paddingBottom: "8px",
+            }}
+          >
+            <span style={{ color: "var(--rf-ink-muted)", fontWeight: 600 }}>
+              PUBLIC_CONTRACT_ADDRESS:
+            </span>
+            <span
+              className="rf-mono"
+              style={{
+                color: config?.contractAddress ? "var(--rf-safe-text)" : "var(--rf-warning-text)",
+                fontWeight: 600,
+              }}
+            >
               {config?.contractAddress || "None (Not configured)"}
             </span>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "4px 12px", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "6px" }}>
-            <span style={{ color: "var(--text-muted)" }}>PUBLIC_GENLAYER_RPC_URL:</span>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "4px 12px",
+              borderBottom: "1px solid var(--rf-border-subtle)",
+              paddingBottom: "8px",
+            }}
+          >
+            <span style={{ color: "var(--rf-ink-muted)", fontWeight: 600 }}>
+              PUBLIC_GENLAYER_RPC_URL:
+            </span>
             <span className="rf-mono">{config?.rpcUrl || "Loading..."}</span>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "4px 12px", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "6px" }}>
-            <span style={{ color: "var(--text-muted)" }}>PUBLIC_GENLAYER_CHAIN_ID:</span>
-            <span className="rf-mono">{config?.chainId} (0x{config?.chainId.toString(16)})</span>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "4px 12px",
+              borderBottom: "1px solid var(--rf-border-subtle)",
+              paddingBottom: "8px",
+            }}
+          >
+            <span style={{ color: "var(--rf-ink-muted)", fontWeight: 600 }}>
+              PUBLIC_GENLAYER_CHAIN_ID:
+            </span>
+            <span className="rf-mono">
+              {config?.chainId} (0x{config?.chainId?.toString(16)}) • {config?.networkName || "GenLayer Studionet"}
+            </span>
           </div>
         </div>
 
         {!config?.isConfigured && (
-          <div style={{ marginTop: "16px", padding: "12px", background: "var(--bg-subtle)", border: "1px solid var(--border-subtle)", borderRadius: "6px" }}>
-            <div style={{ fontWeight: 600, fontSize: "0.88rem", marginBottom: "4px" }}>
+          <div
+            style={{
+              marginTop: "18px",
+              padding: "14px",
+              background: "var(--rf-surface-subtle)",
+              border: "1px solid var(--rf-border-default)",
+              borderRadius: "var(--rf-radius-md)",
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: "0.88rem", marginBottom: "6px" }}>
               Action Required to Enable Live Writes:
             </div>
-            <ol style={{ paddingLeft: "20px", fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            <ol style={{ paddingLeft: "20px", fontSize: "0.84rem", color: "var(--rf-ink-secondary)", lineHeight: 1.6 }}>
               <li>Open GenLayer Studio at <a href="https://studio.genlayer.com" target="_blank" rel="noopener noreferrer">https://studio.genlayer.com</a>.</li>
-              <li>Create a new contract, paste the contents of <code>X/contracts/main.py</code>, and compile.</li>
+              <li>Create a new contract, paste the contents of <code>contracts/main.py</code>, and compile.</li>
               <li>Deploy with zero constructor arguments.</li>
               <li>Set <code>PUBLIC_CONTRACT_ADDRESS=0xYourDeployedAddress</code> in your environment.</li>
-              <li>Restart or reload the application to start on-chain execution.</li>
+              <li>Reload RuleFreeze to execute on-chain reads and writes.</li>
             </ol>
           </div>
         )}
       </div>
 
-      {/* Backend Health Diagnostics */}
+      {/* 2. Backend Health Probe (/api/health) */}
       <div className="rf-card">
-        <h2 className="rf-card-title" style={{ marginBottom: "8px" }}>2. Backend Health Probe (/api/health)</h2>
+        <div className="rf-card-header">
+          <div>
+            <h2 className="rf-card-title">2. Backend Health Probe (/api/health)</h2>
+            <p className="rf-card-subtitle">
+              Live status probe confirming Next.js server readiness and RPC latency.
+            </p>
+          </div>
+        </div>
+
         <pre
           className="rf-mono"
           style={{
-            background: "var(--bg-primary)",
-            padding: "12px",
-            borderRadius: "6px",
+            background: "var(--rf-surface-subtle)",
+            border: "1px solid var(--rf-border-default)",
+            padding: "14px",
+            borderRadius: "var(--rf-radius-md)",
             fontSize: "0.82rem",
             overflowX: "auto",
-            color: "var(--text-secondary)",
+            color: "var(--rf-ink-primary)",
+            lineHeight: 1.5,
           }}
         >
           {JSON.stringify(healthStatus, null, 2)}
         </pre>
       </div>
 
-      {/* Browser Wallet Connectivity */}
+      {/* 3. Browser Wallet Connectivity */}
       <div className="rf-card">
         <div className="rf-card-header">
           <div>
@@ -199,26 +290,48 @@ export default function DiagnosticsPage() {
             <p className="rf-card-subtitle">EIP-1193 window.ethereum inspection</p>
           </div>
           <span className={`rf-badge ${account ? "rf-badge-safe" : "rf-badge-neutral"}`}>
-            {account ? "CONNECTED" : "NOT CONNECTED"}
+            {account ? "WALLET CONNECTED" : "NO ACTIVE WALLET"}
           </span>
         </div>
 
         <div style={{ display: "grid", gap: "10px", fontSize: "0.88rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "6px" }}>
-            <span style={{ color: "var(--text-muted)" }}>Active Account:</span>
-            <span className="rf-mono">{account || "None (Click 'Connect Wallet' in header)"}</span>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              borderBottom: "1px solid var(--rf-border-subtle)",
+              paddingBottom: "8px",
+            }}
+          >
+            <span style={{ color: "var(--rf-ink-muted)", fontWeight: 600 }}>Active Account:</span>
+            <span className="rf-mono" style={{ fontWeight: 600 }}>
+              {account || "None (Click 'Connect Wallet' in header)"}
+            </span>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "6px" }}>
-            <span style={{ color: "var(--text-muted)" }}>Wallet Chain ID:</span>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              borderBottom: "1px solid var(--rf-border-subtle)",
+              paddingBottom: "8px",
+            }}
+          >
+            <span style={{ color: "var(--rf-ink-muted)", fontWeight: 600 }}>Wallet Chain ID:</span>
             <span className="rf-mono">
-              {walletChainId !== null ? `${walletChainId} ${walletChainId === 61999 ? "✓ (GenLayer Studionet)" : "✗ (Wrong network)"}` : "Unknown"}
+              {walletChainId !== null
+                ? `${walletChainId} ${
+                    walletChainId === 61999
+                      ? "✓ (GenLayer Studionet)"
+                      : "✗ (Wrong network — switch to 61999)"
+                  }`
+                : "Unknown"}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Live Contract Reads (if configured) */}
+      {/* 4. Live Contract Reads (if configured) */}
       {config?.isConfigured && (
         <div className="rf-card">
           <div className="rf-card-header">
@@ -226,6 +339,11 @@ export default function DiagnosticsPage() {
               <h2 className="rf-card-title">4. Authoritative Contract Reads</h2>
               <p className="rf-card-subtitle">Real query executed directly against GenLayer Studionet</p>
             </div>
+            {livePolicy && (
+              <span className="rf-badge rf-badge-safe">
+                POLICY {livePolicy.contract_version}
+              </span>
+            )}
           </div>
 
           {readError ? (
@@ -233,41 +351,70 @@ export default function DiagnosticsPage() {
               <div>Contract Read Error: {readError}</div>
             </div>
           ) : livePolicy ? (
-            <div style={{ fontSize: "0.88rem", display: "grid", gap: "8px" }}>
-              <div>Contract Version: <strong>{livePolicy.contract_version}</strong></div>
-              <div>Policy Hash: <span className="rf-hash">{livePolicy.policy_hash}</span></div>
-              <div>Registered Events Count: <strong>{liveEventCount}</strong></div>
+            <div style={{ fontSize: "0.88rem", display: "grid", gap: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--rf-border-subtle)", paddingBottom: "6px" }}>
+                <span style={{ color: "var(--rf-ink-muted)" }}>Contract Version:</span>
+                <strong>{livePolicy.contract_version}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "4px 12px", borderBottom: "1px solid var(--rf-border-subtle)", paddingBottom: "6px" }}>
+                <span style={{ color: "var(--rf-ink-muted)" }}>Policy Hash:</span>
+                <span className="rf-hash">{livePolicy.policy_hash}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--rf-ink-muted)" }}>Registered Events Count:</span>
+                <strong>{liveEventCount}</strong>
+              </div>
             </div>
           ) : (
-            <div style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Querying contract...</div>
+            <div style={{ color: "var(--rf-ink-muted)", fontSize: "0.85rem" }}>Querying contract...</div>
           )}
         </div>
       )}
 
-      {/* IndexedDB Local Storage Inspector */}
+      {/* 5. Browser IndexedDB Storage */}
       <div className="rf-card">
-        <h2 className="rf-card-title" style={{ marginBottom: "8px" }}>5. Browser IndexedDB Storage (RuleFreezeDB)</h2>
-        <p className="rf-card-subtitle" style={{ marginBottom: "16px" }}>
-          Unregistered local drafts and transaction tracking cache.
+        <h2 className="rf-card-title" style={{ marginBottom: "6px" }}>
+          5. Browser IndexedDB Storage (RuleFreezeDB)
+        </h2>
+        <p className="rf-card-subtitle" style={{ marginBottom: "18px" }}>
+          Unregistered local drafts and transaction tracking cache saved in your browser.
         </p>
 
-        <div style={{ display: "grid", gap: "16px" }}>
+        <div style={{ display: "grid", gap: "18px" }}>
           <div>
-            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, marginBottom: "6px" }}>
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: "8px" }}>
               Event Drafts ({eventDrafts.length})
             </h3>
             {eventDrafts.length === 0 ? (
-              <div style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>No local event drafts saved.</div>
+              <div style={{ fontSize: "0.84rem", color: "var(--rf-ink-muted)" }}>
+                No local event drafts saved.
+              </div>
             ) : (
               eventDrafts.map((d) => (
-                <div key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-subtle)", padding: "8px 12px", borderRadius: "4px", marginBottom: "6px" }}>
+                <div
+                  key={d.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    background: "var(--rf-surface-subtle)",
+                    border: "1px solid var(--rf-border-subtle)",
+                    padding: "10px 14px",
+                    borderRadius: "var(--rf-radius-sm)",
+                    marginBottom: "8px",
+                  }}
+                >
                   <div>
                     <strong>{d.name || "(Untitled Draft)"}</strong>
-                    <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
+                    <div style={{ fontSize: "0.78rem", color: "var(--rf-ink-muted)" }}>
                       Updated: {new Date(d.updatedAt).toLocaleTimeString()}
                     </div>
                   </div>
-                  <button type="button" onClick={() => clearDraft(d.id, "event")} className="rf-btn rf-btn-danger rf-btn-sm">
+                  <button
+                    type="button"
+                    onClick={() => clearDraft(d.id, "event")}
+                    className="rf-btn rf-btn-danger rf-btn-sm"
+                  >
                     Delete Local Draft
                   </button>
                 </div>
@@ -276,21 +423,39 @@ export default function DiagnosticsPage() {
           </div>
 
           <div>
-            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, marginBottom: "6px" }}>
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: "8px" }}>
               Amendment Drafts ({amendmentDrafts.length})
             </h3>
             {amendmentDrafts.length === 0 ? (
-              <div style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>No local amendment drafts saved.</div>
+              <div style={{ fontSize: "0.84rem", color: "var(--rf-ink-muted)" }}>
+                No local amendment drafts saved.
+              </div>
             ) : (
               amendmentDrafts.map((d) => (
-                <div key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-subtle)", padding: "8px 12px", borderRadius: "4px", marginBottom: "6px" }}>
+                <div
+                  key={d.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    background: "var(--rf-surface-subtle)",
+                    border: "1px solid var(--rf-border-subtle)",
+                    padding: "10px 14px",
+                    borderRadius: "var(--rf-radius-sm)",
+                    marginBottom: "8px",
+                  }}
+                >
                   <div>
                     <strong>Event: {d.event_id}</strong>
-                    <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
+                    <div style={{ fontSize: "0.78rem", color: "var(--rf-ink-muted)" }}>
                       Updated: {new Date(d.updatedAt).toLocaleTimeString()}
                     </div>
                   </div>
-                  <button type="button" onClick={() => clearDraft(d.id, "amendment")} className="rf-btn rf-btn-danger rf-btn-sm">
+                  <button
+                    type="button"
+                    onClick={() => clearDraft(d.id, "amendment")}
+                    className="rf-btn rf-btn-danger rf-btn-sm"
+                  >
                     Delete Local Draft
                   </button>
                 </div>
@@ -299,19 +464,31 @@ export default function DiagnosticsPage() {
           </div>
 
           <div>
-            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, marginBottom: "6px" }}>
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: "8px" }}>
               Recent Transactions Tracked ({txHistory.length})
             </h3>
             {txHistory.length === 0 ? (
-              <div style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>No transactions tracked yet.</div>
+              <div style={{ fontSize: "0.84rem", color: "var(--rf-ink-muted)" }}>
+                No transactions tracked yet.
+              </div>
             ) : (
               txHistory.slice(0, 5).map((tx) => (
-                <div key={tx.txHash} style={{ background: "var(--bg-subtle)", padding: "8px 12px", borderRadius: "4px", marginBottom: "6px", fontSize: "0.82rem" }}>
+                <div
+                  key={tx.txHash}
+                  style={{
+                    background: "var(--rf-surface-subtle)",
+                    border: "1px solid var(--rf-border-subtle)",
+                    padding: "10px 14px",
+                    borderRadius: "var(--rf-radius-sm)",
+                    marginBottom: "8px",
+                    fontSize: "0.82rem",
+                  }}
+                >
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span className="rf-mono">{tx.txHash.slice(0, 16)}...</span>
+                    <span className="rf-mono">{tx.txHash.slice(0, 16)}…</span>
                     <span className="rf-badge rf-badge-neutral">{tx.status}</span>
                   </div>
-                  <div style={{ color: "var(--text-muted)", marginTop: "2px" }}>
+                  <div style={{ color: "var(--rf-ink-muted)", marginTop: "3px" }}>
                     {tx.method} • {new Date(tx.submittedAt).toLocaleTimeString()}
                   </div>
                 </div>

@@ -198,6 +198,7 @@ export interface EventDraft {
   scenarios: ParticipantScenario[];
   account: string;
   contractAddress?: string;
+  pendingTxHash?: string;
   updatedAt: number;
 }
 
@@ -210,6 +211,7 @@ export interface AmendmentDraft {
   intended_scope: IntendedScope;
   account: string;
   contractAddress?: string;
+  pendingTxHash?: string;
   updatedAt: number;
 }
 

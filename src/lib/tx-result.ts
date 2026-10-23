@@ -292,6 +292,19 @@ export function rollupTransaction(outcome: ParsedTxOutcome): TxRollup {
       error: `Execution result FAILURE under protocol ${outcome.protocolStatus}`,
     };
   }
+  if (
+    NEGATIVE_CONSENSUS.has(outcome.consensusResult) ||
+    outcome.protocolStatus === "UNDETERMINED" ||
+    outcome.protocolStatus === "CANCELED" ||
+    outcome.protocolStatus === "LEADER_TIMEOUT" ||
+    outcome.protocolStatus === "VALIDATORS_TIMEOUT"
+  ) {
+    return {
+      action: "stop",
+      status: "CONSENSUS_DISAGREEMENT",
+      error: `Protocol ${outcome.protocolStatus}; consensus ${outcome.consensusResult}; execution ${outcome.executionResult}`,
+    };
+  }
   if (outcome.protocolStatus === "FINALIZED" || outcome.protocolStatus === "ACCEPTED") {
     if (outcome.executionResult === "SUCCESS") {
       return {
@@ -303,13 +316,6 @@ export function rollupTransaction(outcome: ParsedTxOutcome): TxRollup {
       action: "stop",
       status: "EXECUTION_UNKNOWN",
       error: `Protocol ${outcome.protocolStatus} with execution UNKNOWN. Do not re-submit until the original transaction is reconciled.`,
-    };
-  }
-  if (NEGATIVE_CONSENSUS.has(outcome.consensusResult) || outcome.protocolStatus === "UNDETERMINED" || outcome.protocolStatus === "CANCELED" || outcome.protocolStatus === "LEADER_TIMEOUT" || outcome.protocolStatus === "VALIDATORS_TIMEOUT") {
-    return {
-      action: "stop",
-      status: "CONSENSUS_DISAGREEMENT",
-      error: `Protocol ${outcome.protocolStatus}; consensus ${outcome.consensusResult}; execution ${outcome.executionResult}`,
     };
   }
   return { action: "pending", status: "PENDING_NETWORK" };

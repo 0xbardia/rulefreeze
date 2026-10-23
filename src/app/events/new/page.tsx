@@ -1,13 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getPublicConfig } from "@/lib/config";
 import { executeContractWrite, getInjectedProvider } from "@/lib/contract-adapter";
 import { mockRegisterEvent } from "@/lib/mock-adapter";
-import { saveEventDraft, getEventDraft, deleteEventDraft, recordMatchesContract } from "@/lib/idb";
-import { trackTransaction } from "@/lib/tx-controller";
-import { ParticipantScenario, RuleDimension } from "@/lib/types";
+import {
+  saveEventDraft,
+  getEventDraft,
+  deleteEventDraft,
+  getTxRecord,
+  recordMatchesContract,
+} from "@/lib/idb";
+import { trackTransaction, subscribeTxUpdates } from "@/lib/tx-controller";
+import { reconcileEventRegistration } from "@/lib/reconciliation";
+import type { EventDraft, ParticipantScenario, RuleDimension } from "@/lib/types";
 import { SYNTHETIC_QA_FIXTURE } from "@/lib/fixtures";
 
 export default function NewEventPage() {
@@ -42,9 +50,12 @@ export default function NewEventPage() {
   const [contractAddress, setContractAddress] = useState<string | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [provisionalNotice, setProvisionalNotice] = useState<string | null>(null);
   const [draftSavedNotice, setDraftSavedNotice] = useState(false);
   const [showConfirmOverwrite, setShowConfirmOverwrite] = useState(false);
+  const [showPreSubmitModal, setShowPreSubmitModal] = useState(false);
 
   useEffect(() => {
     setIsDemo(localStorage.getItem("rf_demo_mode") === "true");
@@ -59,6 +70,28 @@ export default function NewEventPage() {
       setDeclaredDeadline(draft.declared_deadline || "");
       if (draft.initial_rules) setInitialRules(draft.initial_rules);
       if (draft.scenarios && draft.scenarios.length > 0) setScenarios(draft.scenarios);
+
+      if (draft.pendingTxHash) {
+        const tx = await getTxRecord(draft.pendingTxHash).catch(() => null);
+        if (
+          tx &&
+          ["SUBMITTED", "PENDING_NETWORK", "ACCEPTED", "EXECUTION_UNKNOWN"].includes(tx.status)
+        ) {
+          setProvisionalNotice(
+            `Active transaction detected (${tx.txHash.slice(0, 14)}... • status: ${tx.status}). Resuming tracking...`
+          );
+          if (cfg.contractAddress) {
+            trackTransaction(
+              tx.txHash,
+              "register_event",
+              `Registering ${draft.name}`,
+              cfg.contractAddress,
+              61999,
+              draft.account
+            ).catch(() => {});
+          }
+        }
+      }
     }).catch(() => {});
 
     const provider = getInjectedProvider();
@@ -162,12 +195,12 @@ export default function NewEventPage() {
     setScenarios(scenarios.filter((_, i) => i !== idx));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleTriggerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (!name.trim()) {
-      setError("Event name is required.");
+      setError("Competition name is required.");
       return;
     }
     if (!initialRules.trim()) {
@@ -179,7 +212,47 @@ export default function NewEventPage() {
       return;
     }
 
+    // Open review confirmation before irreversible write
+    setShowPreSubmitModal(true);
+  };
+
+  const executeRegistration = async () => {
+    if (submittingRef.current) return;
+
+    // Check for unresolved in-flight transaction on this draft before emitting write
+    const existingDraft = await getEventDraft("active_draft").catch(() => null);
+    if (existingDraft?.pendingTxHash) {
+      const existingTx = await getTxRecord(existingDraft.pendingTxHash).catch(() => null);
+      if (
+        existingTx &&
+        ["SUBMITTED", "PENDING_NETWORK", "ACCEPTED", "EXECUTION_UNKNOWN"].includes(
+          existingTx.status
+        )
+      ) {
+        setError(
+          `Unresolved transaction in progress (${existingTx.txHash.slice(0, 14)}... • status: ${existingTx.status}). Manual reconciliation required before re-submitting.`
+        );
+        setShowPreSubmitModal(false);
+        // Resume tracking existing transaction rather than emitting a second write
+        if (contractAddress) {
+          trackTransaction(
+            existingTx.txHash,
+            "register_event",
+            `Registering ${name}`,
+            contractAddress,
+            61999,
+            account || existingTx.account
+          ).catch(() => {});
+        }
+        return;
+      }
+    }
+
+    submittingRef.current = true;
+    setShowPreSubmitModal(false);
     setSubmitting(true);
+    setError(null);
+    setProvisionalNotice(null);
 
     // Demonstration Mode path
     if (isDemo || !contractAddress) {
@@ -200,6 +273,7 @@ export default function NewEventPage() {
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
+        submittingRef.current = false;
         setSubmitting(false);
       }
       return;
@@ -209,6 +283,7 @@ export default function NewEventPage() {
     const provider = getInjectedProvider();
     if (!provider) {
       setError("No Web3 wallet detected. Please connect MetaMask or switch to Demo Mode.");
+      submittingRef.current = false;
       setSubmitting(false);
       return;
     }
@@ -225,10 +300,25 @@ export default function NewEventPage() {
         }
       } catch {
         setError("Wallet connection required to submit on-chain registration.");
+        submittingRef.current = false;
         setSubmitting(false);
         return;
       }
     }
+
+    const draftPayload: EventDraft = {
+      id: "active_draft",
+      name,
+      description,
+      event_url: eventUrl,
+      declared_start: declaredStart,
+      declared_deadline: declaredDeadline,
+      initial_rules: initialRules,
+      scenarios,
+      account: activeAccount,
+      contractAddress,
+      updatedAt: Date.now(),
+    };
 
     try {
       const scenariosJson = JSON.stringify(scenarios);
@@ -240,49 +330,125 @@ export default function NewEventPage() {
         [name, description, eventUrl, declaredStart, declaredDeadline, initialRules, scenariosJson]
       );
 
-      // Track transaction until confirmed
-      trackTransaction(
-        txHash,
-        "register_event",
-        `Registering ${name}`,
-        contractAddress,
-        61999,
-        activeAccount
+      // Record pending transaction on draft immediately to prevent duplicate submissions
+      draftPayload.pendingTxHash = txHash;
+      await saveEventDraft(draftPayload);
+
+      // Listen for provisional consensus transition immediately
+      const unsub = subscribeTxUpdates((rec) => {
+        if (rec.txHash === txHash && rec.status === "ACCEPTED") {
+          setProvisionalNotice(
+            `Transaction accepted by validators on consensus. Awaiting finality before draft cleanup (protocol: ${rec.protocolStatus || "ACCEPTED"}, consensus: ${rec.consensusResult || "MAJORITY_AGREE"}, execution: ${rec.executionResult || "SUCCESS"}).`
+          );
+        }
+      });
+
+      let txRecord: typeof draftPayload & any;
+      try {
+        txRecord = await trackTransaction(
+          txHash,
+          "register_event",
+          `Registering ${name}`,
+          contractAddress,
+          61999,
+          activeAccount
+        );
+      } finally {
+        unsub();
+      }
+
+      // Handle ACCEPTED provisional success: preserve draft, notify user, do not delete draft
+      if (txRecord.status === "ACCEPTED") {
+        setProvisionalNotice(
+          `Transaction accepted by validators on consensus. Awaiting finality before draft cleanup (protocol: ${txRecord.protocolStatus || "ACCEPTED"}, consensus: ${txRecord.consensusResult || "MAJORITY_AGREE"}, execution: ${txRecord.executionResult || "SUCCESS"}).`
+        );
+        return;
+      }
+
+      // Explicit 3-gate reconciliation: Finality verified + Execution SUCCESS + Readback matched
+      const reconciliation = await reconcileEventRegistration(
+        txRecord,
+        draftPayload,
+        contractAddress
       );
 
+      if (!reconciliation.canCleanup) {
+        setError(
+          `Reconciliation gate failed: ${reconciliation.error}. Draft preserved for recovery. (protocol: ${reconciliation.protocolStatus}, consensus: ${reconciliation.consensusResult}, execution: ${reconciliation.executionResult})`
+        );
+        return;
+      }
+
+      // All 3 reconciliation gates passed: clean up draft and navigate
       await deleteEventDraft("active_draft");
       router.push("/events");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-      <div style={{ marginBottom: "24px" }}>
-        <h1 style={{ fontSize: "1.8rem", fontWeight: 700 }}>Register Event Baseline</h1>
-        <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: "16px" }}>
-          Freeze the initial rule set and participant scenario probes on GenLayer Studionet.
-        </p>
+    <div style={{ maxWidth: "880px", margin: "0 auto" }}>
+      {/* Navigation Breadcrumb */}
+      <div style={{ marginBottom: "14px", fontSize: "0.85rem" }}>
+        <Link href="/events" style={{ color: "var(--rf-ink-muted)" }}>
+          ← Back to Registry
+        </Link>
+      </div>
 
-        <div
+      {/* Page Header */}
+      <div style={{ marginBottom: "28px" }}>
+        <span
           style={{
-            background: "var(--bg-subtle)",
-            border: "1px solid var(--border-subtle)",
-            borderRadius: "6px",
-            padding: "10px 14px",
-            marginBottom: "16px",
+            fontSize: "0.75rem",
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            color: "var(--rf-ink-muted)",
+            display: "block",
+            marginBottom: "4px",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          Immutable On-Chain Anchor
+        </span>
+        <h1 style={{ fontSize: "2rem", fontWeight: 800, letterSpacing: "-0.02em" }}>
+          Register Event Baseline
+        </h1>
+        <p style={{ color: "var(--rf-ink-secondary)", fontSize: "0.95rem", marginTop: "4px" }}>
+          Freeze the authoritative initial rule set and scenario probes on GenLayer Studionet.
+        </p>
+
+        {/* Synthetic QA Fixture Loader Card */}
+        <div
+          style={{
+            marginTop: "18px",
+            background: "var(--rf-surface-subtle)",
+            border: "1px solid var(--rf-border-default)",
+            borderRadius: "var(--rf-radius-md)",
+            padding: "14px 18px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "10px",
+            }}
+          >
             <div>
-              <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>Synthetic QA Fixture (Section 8)</div>
-              <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
-                Loads clean, non-sensitive public test baseline and 3 scenario probes.
+              <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "var(--rf-ink-primary)" }}>
+                Synthetic QA Fixture (Section 8 Standard Baseline)
+              </div>
+              <div style={{ fontSize: "0.8rem", color: "var(--rf-ink-muted)", marginTop: "2px" }}>
+                Populates form with clean, non-sensitive competition rules and 3 structured participant probes.
               </div>
             </div>
+
             {!showConfirmOverwrite && (
               <button
                 type="button"
@@ -298,16 +464,17 @@ export default function NewEventPage() {
           {showConfirmOverwrite && (
             <div
               style={{
-                marginTop: "10px",
-                paddingTop: "10px",
-                borderTop: "1px solid var(--border-subtle)",
+                marginTop: "12px",
+                paddingTop: "12px",
+                borderTop: "1px solid var(--rf-border-subtle)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 gap: "12px",
+                flexWrap: "wrap",
               }}
             >
-              <span style={{ fontSize: "0.82rem", color: "var(--color-warning)" }}>
+              <span style={{ fontSize: "0.82rem", color: "var(--rf-warning-text)", fontWeight: 600 }}>
                 Current form has unsaved edits. Overwrite with official Section 8 fixture?
               </span>
               <div style={{ display: "flex", gap: "8px" }}>
@@ -333,24 +500,42 @@ export default function NewEventPage() {
       </div>
 
       {draftSavedNotice && (
-        <div className="rf-banner rf-banner-safe" style={{ padding: "8px 12px", fontSize: "0.85rem" }}>
-          Draft saved locally in IndexedDB.
+        <div className="rf-banner rf-banner-safe" style={{ padding: "10px 14px", fontSize: "0.85rem" }}>
+          Draft successfully saved locally in browser IndexedDB.
+        </div>
+      )}
+
+      {provisionalNotice && (
+        <div className="rf-banner rf-banner-info">
+          <div style={{ flex: 1 }}>{provisionalNotice}</div>
         </div>
       )}
 
       {error && (
         <div className="rf-banner rf-banner-warning">
-          <div>{error}</div>
+          <div style={{ flex: 1 }}>{error}</div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
-        {/* Step 1: Event Details */}
+      <form onSubmit={handleTriggerSubmit}>
+        {/* Step 1: Event Identity & Metadata */}
         <div className="rf-card">
-          <h2 className="rf-card-title" style={{ marginBottom: "16px" }}>1. Event Identity & Metadata</h2>
+          <div className="rf-card-header">
+            <div>
+              <span className="rf-badge rf-badge-neutral rf-mono" style={{ marginBottom: "6px" }}>
+                SECTION 1
+              </span>
+              <h2 className="rf-card-title">Competition Identity & Scope</h2>
+              <p className="rf-card-subtitle">
+                Basic identifiers for your hackathon, grant round, or developer bounty.
+              </p>
+            </div>
+          </div>
+
           <div className="rf-form-group">
-            <label className="rf-label">Competition Name *</label>
+            <label className="rf-label" htmlFor="event-name">Competition Name *</label>
             <input
+              id="event-name"
               type="text"
               className="rf-input"
               value={name}
@@ -361,20 +546,22 @@ export default function NewEventPage() {
           </div>
 
           <div className="rf-form-group">
-            <label className="rf-label">Description</label>
+            <label className="rf-label" htmlFor="event-desc">Public Description</label>
             <textarea
+              id="event-desc"
               className="rf-textarea"
-              style={{ minHeight: "80px" }}
+              style={{ minHeight: "84px" }}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief description of the challenge, prizes, and organizers..."
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "16px" }}>
             <div className="rf-form-group">
-              <label className="rf-label">Public Event URL</label>
+              <label className="rf-label" htmlFor="event-url">Public Event / Website URL</label>
               <input
+                id="event-url"
                 type="url"
                 className="rf-input"
                 value={eventUrl}
@@ -383,131 +570,193 @@ export default function NewEventPage() {
               />
             </div>
             <div className="rf-form-group">
-              <label className="rf-label">Declared Submission Deadline</label>
+              <label className="rf-label" htmlFor="event-deadline">Declared Submission Deadline</label>
               <input
+                id="event-deadline"
                 type="text"
                 className="rf-input"
                 value={declaredDeadline}
                 onChange={(e) => setDeclaredDeadline(e.target.value)}
                 placeholder="e.g. 2026-11-15T23:59:59Z"
               />
+              <div className="rf-help">ISO 8601 UTC timestamp recommended.</div>
             </div>
           </div>
         </div>
 
-        {/* Step 2: Initial Rules */}
+        {/* Step 2: Baseline Rules Text */}
         <div className="rf-card">
           <div className="rf-card-header">
             <div>
-              <h2 className="rf-card-title">2. Full Baseline Rules Text *</h2>
+              <span className="rf-badge rf-badge-neutral rf-mono" style={{ marginBottom: "6px" }}>
+                SECTION 2
+              </span>
+              <h2 className="rf-card-title">Full Baseline Rules Text *</h2>
               <p className="rf-card-subtitle">
-                Enter the exact initial rules text. Once registered, this text is cryptographically hashed and cannot be deleted or secretly replaced.
+                Enter the complete initial competition rules. This text will be cryptographically hashed (SHA-256) and permanently stored on GenLayer.
               </p>
             </div>
+            <span className="rf-badge rf-badge-neutral rf-mono" style={{ fontSize: "0.72rem" }}>
+              {initialRules.length} characters • {initialRules.split("\n").length} lines
+            </span>
           </div>
 
           <div className="rf-form-group">
+            <label className="sr-only" htmlFor="initial-rules">Initial Rules Text</label>
             <textarea
+              id="initial-rules"
               className="rf-textarea rf-code-editor"
-              style={{ minHeight: "180px" }}
+              style={{ minHeight: "220px", fontSize: "0.9rem" }}
               value={initialRules}
               onChange={(e) => setInitialRules(e.target.value)}
               required
             />
           </div>
-          <div className="rf-help">
-            Notice: Registration time is recorded on-chain, but does not prove the rules were authored before that timestamp.
+
+          <div
+            style={{
+              padding: "10px 14px",
+              background: "var(--rf-surface-subtle)",
+              borderRadius: "var(--rf-radius-sm)",
+              border: "1px solid var(--rf-border-subtle)",
+              fontSize: "0.8rem",
+              color: "var(--rf-ink-muted)",
+              lineHeight: 1.5,
+            }}
+          >
+            <strong>Immutability Notice:</strong> Once registered, baseline rule text cannot be deleted or secretly replaced. Future revisions must be submitted as public amendments evaluated against this baseline.
           </div>
         </div>
 
-        {/* Step 3: Bounded Participant Scenarios */}
+        {/* Step 3: Scenario Probes */}
         <div className="rf-card">
           <div className="rf-card-header">
             <div>
-              <h2 className="rf-card-title">3. Bounded Participant Scenarios Probes *</h2>
+              <span className="rf-badge rf-badge-neutral rf-mono" style={{ marginBottom: "6px" }}>
+                SECTION 3
+              </span>
+              <h2 className="rf-card-title">Bounded Participant Scenario Probes *</h2>
               <p className="rf-card-subtitle">
-                Define concrete test situations (e.g. team size, late submission, repo structure). RuleFreeze will test every future amendment against these exact cases.
+                Define concrete test situations (e.g. team size, late submission, missing artifact). The intelligent contract tests future amendments against these exact probes.
               </p>
             </div>
+
             <button
               type="button"
               className="rf-btn rf-btn-secondary rf-btn-sm"
               onClick={addScenario}
             >
-              + Add Scenario
+              + Add Scenario Probe
             </button>
           </div>
 
-          {scenarios.map((sc, idx) => (
-            <div key={sc.id || idx} className="rf-scenario-card">
-              <div className="rf-scenario-header">
-                <span className="rf-badge rf-badge-neutral rf-mono">{sc.id}</span>
-                <button
-                  type="button"
-                  className="rf-btn rf-btn-danger rf-btn-sm"
-                  onClick={() => removeScenario(idx)}
-                  title="Remove scenario"
-                >
-                  Remove
-                </button>
-              </div>
+          <div style={{ display: "grid", gap: "14px" }}>
+            {scenarios.map((sc, idx) => (
+              <div key={sc.id || idx} className="rf-scenario-card">
+                <div className="rf-scenario-header">
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span className="rf-badge rf-badge-neutral rf-mono">{sc.id}</span>
+                    <strong style={{ fontSize: "0.92rem" }}>{sc.title || `Probe ${idx + 1}`}</strong>
+                  </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "12px", marginBottom: "10px" }}>
-                <div>
-                  <label className="rf-label" style={{ fontSize: "0.8rem" }}>Scenario Title</label>
+                  <button
+                    type="button"
+                    className="rf-btn rf-btn-danger rf-btn-sm"
+                    onClick={() => removeScenario(idx)}
+                    title="Remove scenario"
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: "12px",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <div>
+                    <label className="rf-label" style={{ fontSize: "0.8rem" }} htmlFor={`sc-title-${idx}`}>
+                      Probe Label / Title
+                    </label>
+                    <input
+                      id={`sc-title-${idx}`}
+                      type="text"
+                      className="rf-input"
+                      value={sc.title}
+                      onChange={(e) => updateScenario(idx, { title: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="rf-label" style={{ fontSize: "0.8rem" }} htmlFor={`sc-dim-${idx}`}>
+                      Affected Dimension
+                    </label>
+                    <select
+                      id={`sc-dim-${idx}`}
+                      className="rf-select"
+                      value={sc.dimension}
+                      onChange={(e) =>
+                        updateScenario(idx, { dimension: e.target.value as RuleDimension })
+                      }
+                    >
+                      <option value="ELIGIBILITY">ELIGIBILITY</option>
+                      <option value="SCORING">SCORING</option>
+                      <option value="DEADLINES">DEADLINES</option>
+                      <option value="DELIVERABLES">DELIVERABLES</option>
+                      <option value="OBLIGATIONS">OBLIGATIONS</option>
+                      <option value="PROCEDURES">PROCEDURES</option>
+                      <option value="DEFINITIONS">DEFINITIONS</option>
+                      <option value="OTHER">OTHER</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: "12px" }}>
+                  <label className="rf-label" style={{ fontSize: "0.8rem" }} htmlFor={`sc-sit-${idx}`}>
+                    Participant Situation (Factual Premise)
+                  </label>
                   <input
+                    id={`sc-sit-${idx}`}
                     type="text"
                     className="rf-input"
-                    value={sc.title}
-                    onChange={(e) => updateScenario(idx, { title: e.target.value })}
+                    value={sc.situation}
+                    onChange={(e) => updateScenario(idx, { situation: e.target.value })}
+                    placeholder="e.g. Solo developer submitting a Rust CLI repo on Friday at 20:00 UTC."
                   />
                 </div>
+
                 <div>
-                  <label className="rf-label" style={{ fontSize: "0.8rem" }}>Dimension</label>
-                  <select
-                    className="rf-select"
-                    value={sc.dimension}
-                    onChange={(e) => updateScenario(idx, { dimension: e.target.value as RuleDimension })}
-                  >
-                    <option value="ELIGIBILITY">ELIGIBILITY</option>
-                    <option value="SCORING">SCORING</option>
-                    <option value="DEADLINES">DEADLINES</option>
-                    <option value="DELIVERABLES">DELIVERABLES</option>
-                    <option value="OBLIGATIONS">OBLIGATIONS</option>
-                    <option value="PROCEDURES">PROCEDURES</option>
-                    <option value="DEFINITIONS">DEFINITIONS</option>
-                    <option value="OTHER">OTHER</option>
-                  </select>
+                  <label className="rf-label" style={{ fontSize: "0.8rem" }} htmlFor={`sc-q-${idx}`}>
+                    Explicit Question to Assess
+                  </label>
+                  <input
+                    id={`sc-q-${idx}`}
+                    type="text"
+                    className="rf-input"
+                    value={sc.question}
+                    onChange={(e) => updateScenario(idx, { question: e.target.value })}
+                    placeholder="e.g. Is this submission eligible and timely?"
+                  />
                 </div>
               </div>
-
-              <div style={{ marginBottom: "10px" }}>
-                <label className="rf-label" style={{ fontSize: "0.8rem" }}>Situation / Participant Facts</label>
-                <input
-                  type="text"
-                  className="rf-input"
-                  value={sc.situation}
-                  onChange={(e) => updateScenario(idx, { situation: e.target.value })}
-                  placeholder="e.g. Solo developer submitting a Rust CLI repo on Friday at 20:00 UTC."
-                />
-              </div>
-
-              <div>
-                <label className="rf-label" style={{ fontSize: "0.8rem" }}>Explicit Question to Assess</label>
-                <input
-                  type="text"
-                  className="rf-input"
-                  value={sc.question}
-                  onChange={(e) => updateScenario(idx, { question: e.target.value })}
-                  placeholder="e.g. Is this submission eligible and timely?"
-                />
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        {/* Action Bar */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "24px" }}>
+        {/* Action Controls */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: "24px",
+            flexWrap: "wrap",
+            gap: "12px",
+          }}
+        >
           <button
             type="button"
             className="rf-btn rf-btn-secondary"
@@ -521,10 +770,91 @@ export default function NewEventPage() {
             className="rf-btn rf-btn-primary"
             disabled={submitting}
           >
-            {submitting ? "Registering on GenLayer..." : "Submit Baseline Registration"}
+            {submitting ? "Registering on GenLayer..." : "Review & Submit Baseline"}
           </button>
         </div>
       </form>
+
+      {/* Pre-Submission Review Modal */}
+      {showPreSubmitModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(18, 21, 24, 0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+            padding: "20px",
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+        >
+          <div
+            className="rf-card"
+            style={{
+              maxWidth: "600px",
+              width: "100%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              marginBottom: 0,
+              boxShadow: "var(--rf-shadow-elevated)",
+            }}
+          >
+            <h2 id="modal-title" style={{ fontSize: "1.4rem", fontWeight: 800, marginBottom: "8px" }}>
+              Confirm Baseline Registration
+            </h2>
+            <p style={{ fontSize: "0.88rem", color: "var(--rf-ink-secondary)", marginBottom: "16px" }}>
+              Please review the following details before executing this public on-chain transaction:
+            </p>
+
+            <div
+              style={{
+                background: "var(--rf-surface-subtle)",
+                padding: "14px",
+                borderRadius: "var(--rf-radius-md)",
+                fontSize: "0.85rem",
+                display: "grid",
+                gap: "8px",
+                marginBottom: "20px",
+              }}
+            >
+              <div>
+                <strong>Event Name:</strong> {name}
+              </div>
+              <div>
+                <strong>Rules Length:</strong> {initialRules.length} characters ({initialRules.split("\n").length} lines)
+              </div>
+              <div>
+                <strong>Scenario Probes:</strong> {scenarios.length} registered probes
+              </div>
+              <div>
+                <strong>Network Target:</strong> {isDemo ? "Local Demonstration Fixture" : "GenLayer Studionet (Chain 61999)"}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              <button
+                type="button"
+                className="rf-btn rf-btn-secondary"
+                onClick={() => setShowPreSubmitModal(false)}
+              >
+                Go Back & Edit
+              </button>
+              <button
+                type="button"
+                className="rf-btn rf-btn-primary"
+                onClick={executeRegistration}
+                disabled={submitting}
+              >
+                {submitting ? "Submitting..." : "Confirm & Write to GenLayer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
